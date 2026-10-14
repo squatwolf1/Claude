@@ -14,6 +14,8 @@ except Exception:
 
 BASE = os.path.dirname(sys.executable if getattr(sys, "frozen", False) else os.path.abspath(__file__))
 CFG = os.path.join(BASE, "tw_market.json")
+RECIPE = ("이클립스 윙", [("어비스 윙", 1), ("가짜 달여왕 군단의 휘장 장식", 3), ("가공된 달의 광물", 1),
+                       ("룬의 원석", 20), ("달의 약초", 100), ("가짜 달여왕 군단의 인장", 6)])
 
 
 # ---------- OCR ----------
@@ -79,6 +81,15 @@ def parse_row(text):
     return name.strip(), int(m.group(1)), price
 
 
+def parse_price(s):
+    """'20만 5000' / '205000' / '1억 2000만' -> 정수"""
+    s = s.replace(",", "").strip()
+    p = re.fullmatch(r"(?:(\d+)\s*억)?\s*(?:(\d+)\s*만)?\s*(\d+)?", s)
+    if not s or not p:
+        return None
+    return int(p.group(1) or 0) * 10**8 + int(p.group(2) or 0) * 10**4 + int(p.group(3) or 0)
+
+
 def norm(s):
     return re.sub(r"[\s\[\]()+]", "", s).lower()
 
@@ -128,20 +139,21 @@ def select_region(root, done):
 class App:
     def __init__(self, root):
         self.root = root
-        self.cfg = {"region": None, "items": [], "auto": 0}
+        self.cfg = {"region": None, "items": [{"name": n, "qty": q, "price": None} for n, q in RECIPE[1]], "auto": 0}
         if os.path.exists(CFG):
             try:
                 self.cfg.update(json.load(open(CFG, encoding="utf-8")))
             except Exception:
                 pass
-        root.title("TW 거래소 시세")
+        root.title(f"{RECIPE[0]} 제작 시세표")
         root.attributes("-topmost", True, "-alpha", 0.92)
-        root.geometry("440x380")
+        root.geometry("480x400")
 
         bar = ttk.Frame(root)
         bar.pack(fill="x", padx=4, pady=4)
         ttk.Button(bar, text="영역 지정", command=lambda: select_region(root, self.set_region)).pack(side="left")
         ttk.Button(bar, text="스캔", command=self.scan).pack(side="left", padx=4)
+        ttk.Button(bar, text="레시피 초기화", command=self.reset).pack(side="left")
         self.auto = tk.BooleanVar(value=bool(self.cfg["auto"]))
         ttk.Checkbutton(bar, text="자동(3초)", variable=self.auto, command=self.save).pack(side="left")
         self.status = ttk.Label(bar, text="")
@@ -149,9 +161,10 @@ class App:
 
         add = ttk.Frame(root)
         add.pack(fill="x", padx=4)
-        self.e_name, self.e_qty = ttk.Entry(add), ttk.Entry(add, width=7)
-        self.e_name.pack(side="left", fill="x", expand=True)
-        self.e_qty.pack(side="left", padx=2)
+        self.e_name, self.e_qty, self.e_price = ttk.Entry(add), ttk.Entry(add, width=5), ttk.Entry(add, width=12)
+        for e, t in ((self.e_name, "이름"), (self.e_qty, "개수"), (self.e_price, "가격(비우면 스캔)")):
+            ttk.Label(add, text=t).pack(side="left")
+            e.pack(side="left", padx=2, fill="x", expand=e is self.e_name)
         self.e_qty.insert(0, "1")
         ttk.Button(add, text="추가/수정", command=self.add).pack(side="left")
         ttk.Button(add, text="삭제", command=self.remove).pack(side="left")
@@ -163,8 +176,8 @@ class App:
             self.tv.column(c, width=w, anchor="w" if c == "name" else "e")
         self.tv.pack(fill="both", expand=True, padx=4, pady=4)
         self.tv.bind("<<TreeviewSelect>>", self.on_select)
-        self.sum = ttk.Label(root, text="", font=("맑은 고딕", 11, "bold"))
-        self.sum.pack(anchor="e", padx=6, pady=(0, 4))
+        self.sum = tk.Label(root, text="", font=("맑은 고딕", 16, "bold"), fg="#fff", bg="#2b5797", anchor="e", padx=10, pady=6)
+        self.sum.pack(fill="x", padx=4, pady=(0, 4))
         self.busy = False
         self.refresh()
         self.tick()
@@ -176,8 +189,10 @@ class App:
     def refresh(self):
         self.tv.delete(*self.tv.get_children())
         for i, it in enumerate(self.cfg["items"]):
-            self.tv.insert("", "end", iid=str(i), values=(it["name"], it["qty"], won(it.get("price")), won(self.total(it))))
-        self.sum.config(text="총합: " + won(sum(self.total(i) or 0 for i in self.cfg["items"])))
+            self.tv.insert("", "end", iid=str(i), values=(it["name"], it["qty"], won(it.get("price")) + (" ✎" if it.get("manual") else ""), won(self.total(it))))
+        miss = sum(i.get("price") is None for i in self.cfg["items"])
+        self.sum.config(text=f"{RECIPE[0]} 총 제작비: " + won(sum(self.total(i) or 0 for i in self.cfg["items"]))
+                        + (f"  (미확인 {miss})" if miss else ""))
 
     def save(self):
         self.cfg["auto"] = int(self.auto.get())
@@ -194,6 +209,7 @@ class App:
             it = self.cfg["items"][int(s[0])]
             self.e_name.delete(0, "end"); self.e_name.insert(0, it["name"])
             self.e_qty.delete(0, "end"); self.e_qty.insert(0, it["qty"])
+            self.e_price.delete(0, "end"); self.e_price.insert(0, won(it["price"]) if it.get("manual") else "")
 
     def add(self):
         name = self.e_name.get().strip()
@@ -201,19 +217,29 @@ class App:
             qty = int(self.e_qty.get().replace(",", ""))
         except ValueError:
             return messagebox.showwarning("", "개수는 숫자로 입력")
-        if not name:
-            return
+        ptxt = self.e_price.get().strip()
+        price = parse_price(ptxt)
+        if not name or (ptxt and price is None):
+            return messagebox.showwarning("", "이름/가격 확인 (예: 20만 5000)") if name else None
         for it in self.cfg["items"]:
             if norm(it["name"]) == norm(name):
-                it["name"], it["qty"] = name, qty
                 break
         else:
-            self.cfg["items"].append({"name": name, "qty": qty, "price": None})
+            it = {"name": name, "price": None}
+            self.cfg["items"].append(it)
+        it.update(name=name, qty=qty, manual=price is not None)
+        if price is not None:
+            it["price"] = price
         self.save(); self.refresh()
 
     def remove(self):
         for s in sorted(self.tv.selection(), key=int, reverse=True):
             del self.cfg["items"][int(s)]
+        self.save(); self.refresh()
+
+    def reset(self):
+        old = {norm(i["name"]): i for i in self.cfg["items"]}
+        self.cfg["items"] = [dict(old.get(norm(n), {"price": None}), name=n, qty=q) for n, q in RECIPE[1]]
         self.save(); self.refresh()
 
     def scan(self):
@@ -231,6 +257,8 @@ class App:
             rows = [r for r in rows if r]
             hit = 0
             for it in self.cfg["items"]:
+                if it.get("manual"):
+                    continue
                 # 위에서부터 첫 일치 행 = 최저가
                 for name, _cnt, price in rows:
                     if similar(it["name"], name) >= 0.8:
