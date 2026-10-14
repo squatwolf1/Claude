@@ -3,7 +3,7 @@ import uuid  # winrt가 내부적으로 사용 (PyInstaller 누락 방지)
 # 화면 캡처 + Windows 내장 OCR만 사용 (게임 메모리/입력/패킷 접근 없음)
 import asyncio, ctypes, json, os, re, sys, threading, difflib
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 import mss
 from PIL import Image, ImageOps
 
@@ -14,8 +14,8 @@ except Exception:
 
 BASE = os.path.dirname(sys.executable if getattr(sys, "frozen", False) else os.path.abspath(__file__))
 CFG = os.path.join(BASE, "tw_market.json")
-RECIPE = ("이클립스 윙", [("어비스 윙", 1), ("가짜 달여왕 군단의 휘장 장식", 3), ("가공된 달의 광물", 1),
-                       ("룬의 원석", 20), ("달의 약초", 100), ("가짜 달여왕 군단의 인장", 6)])
+DEFAULT_RECIPES = {"이클립스 윙": [["어비스 윙", 1], ["가짜 달여왕 군단의 휘장 장식", 3], ["가공된 달의 광물", 1],
+                                  ["룬의 원석", 20], ["달의 약초", 100], ["가짜 달여왕 군단의 인장", 6]]}
 
 
 # ---------- OCR ----------
@@ -65,12 +65,13 @@ def capture(region):
 
 # ---------- 파싱 ----------
 PRICE_RE = re.compile(r"(?:(\d+)\s*억)?\s*(?:(\d+)\s*만)?\s*(\d{1,4})?\s*$")
-FIX = str.maketrans({"O": "0", "o": "0", "l": "1", "I": "1", "|": "1", ",": "", ".": ""})
+FIX = str.maketrans({"O": "0", "o": "0", "D": "0", "l": "1", "I": "1", "|": "1", "!": "1", "S": "5", "B": "8",
+                     ",": "", ".": "", "민": "만", "반": "만", "안": "만", "맏": "만", "말": "만", "역": "억", "얶": "억"})
 
 
 def parse_row(text):
     """'아이템명 840 20만 5000 2일' -> (이름, 개수, 가격)"""
-    s = re.sub(r"\s*\d+\s*(일|시간|분)\s*$", "", text.strip())  # 남은 시간 제거
+    s = re.sub(r"\s*\d+\s*(일|시간|분|밀|잎)\s*$", "", text.strip())  # 남은 시간 제거
     m = re.search(r"(\d+)\s+((?:\d+\s*억\s*)?(?:\d+\s*만\s*)?\d{1,4})\s*$", s.translate(FIX)) \
         or re.search(r"(\d+)\s+((?:\d+\s*억\s*)?\d+\s*만)\s*$", s.translate(FIX))
     if not m:
@@ -94,8 +95,9 @@ def norm(s):
     return re.sub(r"[\s\[\]()+]", "", s).lower()
 
 
-def similar(a, b):
-    return difflib.SequenceMatcher(None, norm(a), norm(b)).ratio()
+def match(target, name):
+    t, n = norm(target), norm(name)
+    return bool(t) and (t in n or difflib.SequenceMatcher(None, t, n).ratio() >= 0.75)
 
 
 def won(n):
@@ -139,30 +141,41 @@ def select_region(root, done):
 class App:
     def __init__(self, root):
         self.root = root
-        self.cfg = {"region": None, "items": [{"name": n, "qty": q, "price": None} for n, q in RECIPE[1]], "auto": 0}
+        self.cfg = {"region": None, "auto": 0, "cur": "이클립스 윙", "recipes": DEFAULT_RECIPES, "prices": {}}
         if os.path.exists(CFG):
             try:
                 self.cfg.update(json.load(open(CFG, encoding="utf-8")))
             except Exception:
                 pass
-        root.title(f"{RECIPE[0]} 제작 시세표")
+        self.cfg.pop("items", None)
+        self.last = "아직 스캔 안 함"
+        root.title("TW 제작 시세표")
         root.attributes("-topmost", True, "-alpha", 0.92)
-        root.geometry("480x400")
+        root.geometry("520x430")
 
         bar = ttk.Frame(root)
         bar.pack(fill="x", padx=4, pady=4)
         ttk.Button(bar, text="영역 지정", command=lambda: select_region(root, self.set_region)).pack(side="left")
         ttk.Button(bar, text="스캔", command=self.scan).pack(side="left", padx=4)
-        ttk.Button(bar, text="레시피 초기화", command=self.reset).pack(side="left")
         self.auto = tk.BooleanVar(value=bool(self.cfg["auto"]))
         ttk.Checkbutton(bar, text="자동(3초)", variable=self.auto, command=self.save).pack(side="left")
+        ttk.Button(bar, text="인식 확인", command=self.show_last).pack(side="left", padx=4)
         self.status = ttk.Label(bar, text="")
         self.status.pack(side="right")
 
+        eq = ttk.Frame(root)
+        eq.pack(fill="x", padx=4)
+        ttk.Label(eq, text="장비").pack(side="left")
+        self.cb = ttk.Combobox(eq, state="readonly")
+        self.cb.pack(side="left", fill="x", expand=True, padx=2)
+        self.cb.bind("<<ComboboxSelected>>", lambda e: (self.cfg.update(cur=self.cb.get()), self.save(), self.refresh()))
+        ttk.Button(eq, text="장비 추가", command=self.add_equip).pack(side="left")
+        ttk.Button(eq, text="장비 삭제", command=self.del_equip).pack(side="left")
+
         add = ttk.Frame(root)
-        add.pack(fill="x", padx=4)
+        add.pack(fill="x", padx=4, pady=4)
         self.e_name, self.e_qty, self.e_price = ttk.Entry(add), ttk.Entry(add, width=5), ttk.Entry(add, width=12)
-        for e, t in ((self.e_name, "이름"), (self.e_qty, "개수"), (self.e_price, "가격(비우면 스캔)")):
+        for e, t in ((self.e_name, "재료"), (self.e_qty, "개수"), (self.e_price, "가격(비우면 스캔)")):
             ttk.Label(add, text=t).pack(side="left")
             e.pack(side="left", padx=2, fill="x", expand=e is self.e_name)
         self.e_qty.insert(0, "1")
@@ -171,28 +184,39 @@ class App:
 
         cols = ("name", "qty", "price", "total")
         self.tv = ttk.Treeview(root, columns=cols, show="headings", height=10)
-        for c, t, w in zip(cols, ("아이템", "개수", "최저 개당가", "합계"), (150, 50, 110, 110)):
+        for c, t, w in zip(cols, ("재료", "개수", "최저 개당가", "합계"), (170, 50, 120, 120)):
             self.tv.heading(c, text=t)
             self.tv.column(c, width=w, anchor="w" if c == "name" else "e")
-        self.tv.pack(fill="both", expand=True, padx=4, pady=4)
+        self.tv.pack(fill="both", expand=True, padx=4)
         self.tv.bind("<<TreeviewSelect>>", self.on_select)
         self.sum = tk.Label(root, text="", font=("맑은 고딕", 16, "bold"), fg="#fff", bg="#2b5797", anchor="e", padx=10, pady=6)
-        self.sum.pack(fill="x", padx=4, pady=(0, 4))
+        self.sum.pack(fill="x", padx=4, pady=4)
         self.busy = False
         self.refresh()
         self.tick()
 
-    # 결과 데이터: self.cfg["items"] = [{"name","qty","price"}] (프로그램 내부 사용, json 자동 저장)
-    def total(self, it):
-        return None if it.get("price") is None else it["qty"] * it["price"]
+    # 데이터: recipes{장비: [[재료, 개수]]}, prices{재료: {"p": 가격, "m": 수동여부}} (장비끼리 시세 공유)
+    def items(self):
+        return self.cfg["recipes"].get(self.cfg["cur"], [])
+
+    def price(self, name):
+        return self.cfg["prices"].get(name, {}).get("p")
 
     def refresh(self):
+        names = list(self.cfg["recipes"])
+        if self.cfg["cur"] not in names:
+            self.cfg["cur"] = names[0] if names else ""
+        self.cb["values"] = names
+        self.cb.set(self.cfg["cur"])
         self.tv.delete(*self.tv.get_children())
-        for i, it in enumerate(self.cfg["items"]):
-            self.tv.insert("", "end", iid=str(i), values=(it["name"], it["qty"], won(it.get("price")) + (" ✎" if it.get("manual") else ""), won(self.total(it))))
-        miss = sum(i.get("price") is None for i in self.cfg["items"])
-        self.sum.config(text=f"{RECIPE[0]} 총 제작비: " + won(sum(self.total(i) or 0 for i in self.cfg["items"]))
-                        + (f"  (미확인 {miss})" if miss else ""))
+        total, miss = 0, 0
+        for i, (n, q) in enumerate(self.items()):
+            p = self.price(n)
+            miss += p is None
+            total += q * (p or 0)
+            mark = " ✎" if self.cfg["prices"].get(n, {}).get("m") else ""
+            self.tv.insert("", "end", iid=str(i), values=(n, q, won(p) + mark, won(None if p is None else q * p)))
+        self.sum.config(text=f"{self.cfg['cur']} 총 제작비: {won(total)}" + (f"  (미확인 {miss})" if miss else ""))
 
     def save(self):
         self.cfg["auto"] = int(self.auto.get())
@@ -203,15 +227,29 @@ class App:
         self.save()
         self.status.config(text=f"영역 {r[2]}x{r[3]}")
 
+    def add_equip(self):
+        n = simpledialog.askstring("장비 추가", "장비 이름", parent=self.root)
+        if n and n.strip():
+            self.cfg["recipes"].setdefault(n.strip(), [])
+            self.cfg["cur"] = n.strip()
+            self.save(); self.refresh()
+
+    def del_equip(self):
+        if self.cfg["cur"] and messagebox.askyesno("장비 삭제", f"'{self.cfg['cur']}' 삭제?"):
+            self.cfg["recipes"].pop(self.cfg["cur"], None)
+            self.save(); self.refresh()
+
     def on_select(self, _):
         s = self.tv.selection()
         if s:
-            it = self.cfg["items"][int(s[0])]
-            self.e_name.delete(0, "end"); self.e_name.insert(0, it["name"])
-            self.e_qty.delete(0, "end"); self.e_qty.insert(0, it["qty"])
-            self.e_price.delete(0, "end"); self.e_price.insert(0, won(it["price"]) if it.get("manual") else "")
+            n, q = self.items()[int(s[0])]
+            pr = self.cfg["prices"].get(n, {})
+            for e, v in ((self.e_name, n), (self.e_qty, q), (self.e_price, won(pr.get("p")) if pr.get("m") else "")):
+                e.delete(0, "end"); e.insert(0, v)
 
     def add(self):
+        if not self.cfg["cur"]:
+            return messagebox.showinfo("", "먼저 '장비 추가'")
         name = self.e_name.get().strip()
         try:
             qty = int(self.e_qty.get().replace(",", ""))
@@ -221,26 +259,31 @@ class App:
         price = parse_price(ptxt)
         if not name or (ptxt and price is None):
             return messagebox.showwarning("", "이름/가격 확인 (예: 20만 5000)") if name else None
-        for it in self.cfg["items"]:
-            if norm(it["name"]) == norm(name):
+        items = self.items()
+        for it in items:
+            if norm(it[0]) == norm(name):
+                it[:] = [name, qty]
                 break
         else:
-            it = {"name": name, "price": None}
-            self.cfg["items"].append(it)
-        it.update(name=name, qty=qty, manual=price is not None)
+            items.append([name, qty])
+        pr = self.cfg["prices"].setdefault(name, {"p": None})
+        pr["m"] = price is not None
         if price is not None:
-            it["price"] = price
+            pr["p"] = price
         self.save(); self.refresh()
 
     def remove(self):
         for s in sorted(self.tv.selection(), key=int, reverse=True):
-            del self.cfg["items"][int(s)]
+            del self.items()[int(s)]
         self.save(); self.refresh()
 
-    def reset(self):
-        old = {norm(i["name"]): i for i in self.cfg["items"]}
-        self.cfg["items"] = [dict(old.get(norm(n), {"price": None}), name=n, qty=q) for n, q in RECIPE[1]]
-        self.save(); self.refresh()
+    def show_last(self):
+        w = tk.Toplevel(self.root)
+        w.title("마지막 인식 결과")
+        w.attributes("-topmost", True)
+        t = tk.Text(w, width=70, height=20)
+        t.pack(fill="both", expand=True)
+        t.insert("1.0", self.last)
 
     def scan(self):
         if self.busy:
@@ -253,22 +296,29 @@ class App:
 
     def _scan(self):
         try:
-            rows = [parse_row(" ".join(t for _, t in ws)) for _, ws in ocr_lines(capture(self.cfg["region"]))]
-            rows = [r for r in rows if r]
-            hit = 0
-            for it in self.cfg["items"]:
-                if it.get("manual"):
+            img = capture(self.cfg["region"])
+            img.save(os.path.join(BASE, "scan_debug.png"))
+            texts = [" ".join(t for _, t in ws) for _, ws in ocr_lines(img)]
+            rows = [r for r in map(parse_row, texts) if r]
+            names = {n for rec in self.cfg["recipes"].values() for n, _ in rec}
+            hit = []
+            for n in names:
+                pr = self.cfg["prices"].setdefault(n, {"p": None})
+                if pr.get("m"):
                     continue
-                # 위에서부터 첫 일치 행 = 최저가
-                for name, _cnt, price in rows:
-                    if similar(it["name"], name) >= 0.8:
-                        it["price"] = price
-                        hit += 1
+                for rn, _cnt, p in rows:  # 위에서부터 첫 일치 행 = 최저가
+                    if match(n, rn):
+                        pr["p"] = p
+                        hit.append(n)
                         break
-            msg = f"행 {len(rows)} / 일치 {hit}"
+            self.last = "[OCR 원문]\n" + "\n".join(texts) + "\n\n[해석된 행] (이름 | 개수 | 가격)\n" + \
+                "\n".join(f"{a} | {b} | {won(c)}" for a, b, c in rows) + "\n\n[일치] " + ", ".join(hit) + \
+                "\n\n캡처 이미지: scan_debug.png"
+            msg = f"행 {len(rows)} / 일치 {len(hit)}"
             self.root.after(0, lambda: (self.save(), self.refresh()))
         except Exception as e:
             msg = "오류"
+            self.last = f"오류: {e}"
             self.root.after(0, lambda e=e: messagebox.showerror("OCR", str(e)))
         self.root.after(0, lambda: (self.status.config(text=msg), setattr(self, "busy", False)))
 
