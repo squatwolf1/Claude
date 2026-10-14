@@ -1,4 +1,5 @@
 # 테일즈위버 거래소 시세 오버레이
+import uuid  # winrt가 내부적으로 사용 (PyInstaller 누락 방지)
 # 화면 캡처 + Windows 내장 OCR만 사용 (게임 메모리/입력/패킷 접근 없음)
 import asyncio, ctypes, json, os, re, sys, threading, difflib
 import tkinter as tk
