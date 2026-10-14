@@ -186,7 +186,7 @@ class App:
         db = ttk.Frame(root)
         db.pack(side="right", fill="y", padx=4, pady=4)
         ttk.Label(db, text="제작비 DB (더블클릭 = 재료로 추가)").pack()
-        self.dbv = ttk.Treeview(db, columns=("n", "p"), show="headings", width=0)
+        self.dbv = ttk.Treeview(db, columns=("n", "p"), show="headings")
         for c, t, w in (("n", "장비", 120), ("p", "제작비", 110)):
             self.dbv.heading(c, text=t)
             self.dbv.column(c, width=w, anchor="w" if c == "n" else "e")
