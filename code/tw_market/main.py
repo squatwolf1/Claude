@@ -66,7 +66,7 @@ def capture(region):
 # ---------- 파싱 ----------
 PRICE_RE = re.compile(r"(?:(\d+)\s*억)?\s*(?:(\d+)\s*만)?\s*(\d{1,4})?\s*$")
 FIX = str.maketrans({"O": "0", "o": "0", "D": "0", "l": "1", "I": "1", "|": "1", "!": "1", "S": "5", "B": "8",
-                     ",": "", ".": "", "민": "만", "반": "만", "안": "만", "맏": "만", "말": "만", "역": "억", "얶": "억"})
+                     ",": "", ".": "", "민": "만", "반": "만", "안": "만", "맏": "만", "말": "만", "역": "억", "얶": "억", "먹": "억", "멱": "억", "엌": "억", "덕": "억"})
 
 
 def parse_row(text):
@@ -91,13 +91,17 @@ def parse_price(s):
     return int(p.group(1) or 0) * 10**8 + int(p.group(2) or 0) * 10**4 + int(p.group(3) or 0)
 
 
+# 게임 폰트에서 ㅁ/ㅇ 이 비슷해 생기는 오인식 (양쪽에 똑같이 적용해 비교)
+CONFUSE = str.maketrans({"며": "여", "머": "어", "먹": "억", "마": "아", "미": "이", "므": "으", "무": "우", "모": "오"})
+
+
 def norm(s):
-    return re.sub(r"[\s\[\]()+]", "", s).lower()
+    return re.sub(r"[\s\[\]()+]", "", s).lower().translate(CONFUSE)
 
 
 def match(target, name):
     t, n = norm(target), norm(name)
-    return bool(t) and (t in n or difflib.SequenceMatcher(None, t, n).ratio() >= 0.75)
+    return bool(t) and (t in n or difflib.SequenceMatcher(None, t, n).ratio() >= 0.9)
 
 
 def won(n):
