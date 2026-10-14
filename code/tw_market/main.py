@@ -14,6 +14,8 @@ except Exception:
 
 BASE = os.path.dirname(sys.executable if getattr(sys, "frozen", False) else os.path.abspath(__file__))
 CFG = os.path.join(BASE, "tw_market.json")
+SLOTS = ["투구", "갑옷", "무기", "손목", "머리", "몸", "손", "다리", "윙"]
+TIERS = ["엔키라", "엔키라 칼라그", "인퍼널", "아퀼루스", "어비스", "이클립스"]  # 하위 -> 상위
 DEFAULT_RECIPES = {"이클립스 윙": [["어비스 윙", 1], ["가짜 달여왕 군단의 휘장 장식", 3], ["가공된 달의 광물", 1],
                                   ["룬의 원석", 20], ["달의 약초", 100], ["가짜 달여왕 군단의 인장", 6]]}
 
@@ -92,7 +94,7 @@ def parse_price(s):
 
 
 # 게임 폰트에서 ㅁ/ㅇ 이 비슷해 생기는 오인식 (양쪽에 똑같이 적용해 비교)
-CONFUSE = str.maketrans({"며": "여", "머": "어", "먹": "억", "마": "아", "미": "이", "므": "으", "무": "우", "모": "오"})
+CONFUSE = str.maketrans({"며": "여", "머": "어", "먹": "억", "뮝": "윙", "윔": "윙", "마": "아", "미": "이", "므": "으", "무": "우", "모": "오"})
 
 
 def norm(s):
@@ -101,7 +103,7 @@ def norm(s):
 
 def match(target, name):
     t, n = norm(target), norm(name)
-    return bool(t) and (t in n or difflib.SequenceMatcher(None, t, n).ratio() >= 0.9)
+    return bool(t) and (t in n or (len(t) >= 4 and t[1:] in n) or difflib.SequenceMatcher(None, t, n).ratio() >= 0.9)
 
 
 def won(n):
@@ -152,10 +154,11 @@ class App:
             except Exception:
                 pass
         self.cfg.pop("items", None)
+        self.cfg.setdefault("db", {})
         self.last = "아직 스캔 안 함"
         root.title("TW 제작 시세표")
         root.attributes("-topmost", True, "-alpha", 0.92)
-        root.geometry("520x430")
+        root.geometry("790x450")
 
         bar = ttk.Frame(root)
         bar.pack(fill="x", padx=4, pady=4)
@@ -169,12 +172,27 @@ class App:
 
         eq = ttk.Frame(root)
         eq.pack(fill="x", padx=4)
-        ttk.Label(eq, text="장비").pack(side="left")
-        self.cb = ttk.Combobox(eq, state="readonly")
-        self.cb.pack(side="left", fill="x", expand=True, padx=2)
-        self.cb.bind("<<ComboboxSelected>>", lambda e: (self.cfg.update(cur=self.cb.get()), self.save(), self.refresh()))
-        ttk.Button(eq, text="장비 추가", command=self.add_equip).pack(side="left")
-        ttk.Button(eq, text="장비 삭제", command=self.del_equip).pack(side="left")
+        cur = self.cfg["cur"].rsplit(" ", 1) if " " in self.cfg["cur"] else ["이클립스", "윙"]
+        self.cb_slot = ttk.Combobox(eq, state="readonly", values=SLOTS, width=6)
+        self.cb_tier = ttk.Combobox(eq, state="readonly", values=TIERS, width=12)
+        self.cb_slot.set(cur[1] if cur[1] in SLOTS else SLOTS[0])
+        self.cb_tier.set(cur[0] if cur[0] in TIERS else TIERS[0])
+        for t, cb in (("부위", self.cb_slot), ("단계", self.cb_tier)):
+            ttk.Label(eq, text=t).pack(side="left")
+            cb.pack(side="left", padx=2)
+            cb.bind("<<ComboboxSelected>>", self.pick_equip)
+        ttk.Button(eq, text="제작비 DB 저장 →", command=self.db_save).pack(side="right")
+
+        db = ttk.Frame(root)
+        db.pack(side="right", fill="y", padx=4, pady=4)
+        ttk.Label(db, text="제작비 DB (더블클릭 = 재료로 추가)").pack()
+        self.dbv = ttk.Treeview(db, columns=("n", "p"), show="headings", width=0)
+        for c, t, w in (("n", "장비", 120), ("p", "제작비", 110)):
+            self.dbv.heading(c, text=t)
+            self.dbv.column(c, width=w, anchor="w" if c == "n" else "e")
+        self.dbv.pack(fill="y", expand=True)
+        self.dbv.bind("<Double-1>", self.db_use)
+        ttk.Button(db, text="DB 삭제", command=self.db_del).pack(fill="x")
 
         add = ttk.Frame(root)
         add.pack(fill="x", padx=4, pady=4)
@@ -203,23 +221,25 @@ class App:
     def items(self):
         return self.cfg["recipes"].get(self.cfg["cur"], [])
 
-    def price(self, name):
-        return self.cfg["prices"].get(name, {}).get("p")
+    def price(self, name):  # 우선순위: 직접입력 > 제작비 DB > 스캔
+        pr = self.cfg["prices"].get(name, {})
+        return pr.get("p") if pr.get("m") or name not in self.cfg["db"] else self.cfg["db"][name]
+
+    def mark(self, name):
+        return " ✎" if self.cfg["prices"].get(name, {}).get("m") else " ⚙" if name in self.cfg["db"] else ""
 
     def refresh(self):
-        names = list(self.cfg["recipes"])
-        if self.cfg["cur"] not in names:
-            self.cfg["cur"] = names[0] if names else ""
-        self.cb["values"] = names
-        self.cb.set(self.cfg["cur"])
+        self.dbv.delete(*self.dbv.get_children())
+        for n, p in self.cfg["db"].items():
+            self.dbv.insert("", "end", iid=n, values=(n, won(p)))
         self.tv.delete(*self.tv.get_children())
         total, miss = 0, 0
         for i, (n, q) in enumerate(self.items()):
             p = self.price(n)
             miss += p is None
             total += q * (p or 0)
-            mark = " ✎" if self.cfg["prices"].get(n, {}).get("m") else ""
-            self.tv.insert("", "end", iid=str(i), values=(n, q, won(p) + mark, won(None if p is None else q * p)))
+            self.tv.insert("", "end", iid=str(i), values=(n, q, won(p) + self.mark(n), won(None if p is None else q * p)))
+        self.total = total
         self.sum.config(text=f"{self.cfg['cur']} 총 제작비: {won(total)}" + (f"  (미확인 {miss})" if miss else ""))
 
     def save(self):
@@ -231,17 +251,25 @@ class App:
         self.save()
         self.status.config(text=f"영역 {r[2]}x{r[3]}")
 
-    def add_equip(self):
-        n = simpledialog.askstring("장비 추가", "장비 이름", parent=self.root)
-        if n and n.strip():
-            self.cfg["recipes"].setdefault(n.strip(), [])
-            self.cfg["cur"] = n.strip()
-            self.save(); self.refresh()
+    def pick_equip(self, _=None):
+        self.cfg["cur"] = f"{self.cb_tier.get()} {self.cb_slot.get()}"
+        self.cfg["recipes"].setdefault(self.cfg["cur"], [])
+        self.save(); self.refresh()
 
-    def del_equip(self):
-        if self.cfg["cur"] and messagebox.askyesno("장비 삭제", f"'{self.cfg['cur']}' 삭제?"):
-            self.cfg["recipes"].pop(self.cfg["cur"], None)
-            self.save(); self.refresh()
+    def db_save(self):
+        self.cfg["db"][self.cfg["cur"]] = self.total
+        self.save(); self.refresh()
+
+    def db_del(self):
+        for n in self.dbv.selection():
+            self.cfg["db"].pop(n, None)
+        self.save(); self.refresh()
+
+    def db_use(self, _):
+        for n in self.dbv.selection():
+            if n != self.cfg["cur"] and all(norm(it[0]) != norm(n) for it in self.items()):
+                self.items().append([n, 1])
+        self.save(); self.refresh()
 
     def on_select(self, _):
         s = self.tv.selection()
@@ -252,8 +280,6 @@ class App:
                 e.delete(0, "end"); e.insert(0, v)
 
     def add(self):
-        if not self.cfg["cur"]:
-            return messagebox.showinfo("", "먼저 '장비 추가'")
         name = self.e_name.get().strip()
         try:
             qty = int(self.e_qty.get().replace(",", ""))
@@ -306,6 +332,13 @@ class App:
             rows = [r for r in map(parse_row, texts) if r]
             names = {n for rec in self.cfg["recipes"].values() for n, _ in rec}
             hit = []
+            sel = self.tv.selection()
+            if sel and rows:  # 재료를 선택해 두면 이름 비교 없이 맨 위 행(최저가) 적용
+                n = self.items()[int(sel[0])][0]
+                self.cfg["prices"].setdefault(n, {})["p"] = rows[0][2]
+                self.cfg["prices"][n]["m"] = False
+                hit.append(n)
+                names = set()
             for n in names:
                 pr = self.cfg["prices"].setdefault(n, {"p": None})
                 if pr.get("m"):
