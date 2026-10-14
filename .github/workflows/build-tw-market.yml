@@ -1,0 +1,22 @@
+name: Build TW_Market
+on:
+  push:
+    paths: ["code/tw_market/**", ".github/workflows/build-tw-market.yml"]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: code/tw_market
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: pyinstaller --onefile --noconsole --name TW_Market --collect-all winrt main.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TW_Market
+          path: code/tw_market/dist/TW_Market.exe
