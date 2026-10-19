@@ -16,7 +16,7 @@ BASE = os.path.dirname(sys.executable if getattr(sys, "frozen", False) else os.p
 CFG = os.path.join(BASE, "tw_market.json")
 SLOTS = ["투구", "갑옷", "무기", "손목", "머리", "몸", "손", "다리", "윙"]
 TIERS = ["엔키라", "엔키라 칼라그", "인퍼널", "아퀼루스", "어비스", "이클립스"]  # 하위 -> 상위
-EV_DEFAULT = {"r": "2", "seed": 20232000, "elso": "3035", "ep": None, "n": None, "o": None, "mode": "seed", "use": "n"}
+EV_DEFAULT = {"r": "2", "seed": 20232000, "elso": "3035", "s": "1", "n": None, "o": None, "mode": "seed", "use": "n"}
 DEFAULT_RECIPES = {"이클립스 윙": [["어비스 윙", 1], ["가짜 달여왕 군단의 휘장 장식", 3], ["가공된 달의 광물", 1],
                                   ["룬의 원석", 20], ["달의 약초", 100], ["가짜 달여왕 군단의 인장", 6]]}
 
@@ -160,7 +160,7 @@ class App:
         self.last = "아직 스캔 안 함"
         root.title("TW 제작 시세표")
         root.attributes("-topmost", True, "-alpha", 0.92)
-        root.geometry("820x520")
+        root.geometry("860x560")
 
         bar = ttk.Frame(root)
         bar.pack(fill="x", padx=4, pady=4)
@@ -235,16 +235,16 @@ class App:
             ttk.Radiobutton(f1, text=t, value=m, variable=self.cost_mode, command=self.ev_save).pack(side="left")
         field(f1, "seed", "시드", 10)
         field(f1, "elso", "엘소", 6)
-        field(f1, "ep", "1엘소=시드", 8, True)
+        field(f1, "s", "  필요 성공 횟수", 4)
         f2 = ttk.Frame(root); f2.pack(fill="x", padx=4)
         self.ev_lbl = {}
         for k, t in (("n", "일반 주문서"), ("o", "일회용 주문서")):
             ttk.Radiobutton(f2, value=k, variable=self.use, command=self.ev_save).pack(side="left")
-            field(f2, k, t, 10, True)
-            self.ev_lbl[k] = ttk.Label(f2, text="", width=24)
-            self.ev_lbl[k].pack(side="left")
+            field(f2, k, t, 16, True)
         self.sum = tk.Label(root, text="", font=("맑은 고딕", 16, "bold"), fg="#fff", bg="#2b5797", anchor="e", padx=10, pady=6)
-        self.sum.pack(fill="x", padx=4, pady=4)
+        self.sum.pack(fill="x", padx=4, pady=(4, 0))
+        self.ev_lbl = tk.Label(root, text="", font=("맑은 고딕", 11, "bold"), fg="#fff", bg="#3c6db0", anchor="e", justify="right", padx=10, pady=4)
+        self.ev_lbl.pack(fill="x", padx=4, pady=(0, 4))
         self.busy = False
         self.refresh()
         self.tick()
@@ -277,14 +277,15 @@ class App:
         self.cost_mode.set(ev["mode"]); self.use.set(ev["use"])
         for k, v in self.ev_vars.items():
             if self.root.focus_get() is not self.ev_ent[k]:  # 입력 중인 칸은 덮어쓰지 않음
-                v.set(ev[k] if k in ("r", "elso") else won(ev[k]) if ev[k] is not None else "")
+                v.set(ev[k] if k in ("r", "elso", "s") else won(ev[k]) if ev[k] is not None else "")
         res = {k: self.expect(ev, k) for k in "no"}
-        for k, (seed, elso) in res.items():
-            self.ev_lbl[k].config(text=f"기댓값 {won(seed)}" + (f" + 엘소 {elso:,}" if elso else ""))
+        fmt = lambda se, el: f"{won(se)} 시드" + (f" + {el:,} 엘소" if el else "")
+        self.ev_lbl.config(text="  |  ".join(("▶ " if k == ev["use"] else "") + f"{t} 인챈트 기댓값: {fmt(*res[k])}"
+                                            for k, t in (("n", "일반"), ("o", "일회용"))))
         seed, elso = res[ev["use"]]
         total += seed
         self.total = total
-        self.sum.config(text=f"{self.cfg['cur']} 총 제작비: {won(total)}" + (f" + 엘소 {elso:,}" if elso else "") + (f"  (미확인 {miss})" if miss else ""))
+        self.sum.config(text=f"{self.cfg['cur']} 총 제작비: {won(total)} 시드" + (f" + {elso:,} 엘소" if elso else "") + (f"  (미확인 {miss})" if miss else ""))
 
     def save(self):
         self.cfg["auto"] = int(self.auto.get())
@@ -360,10 +361,10 @@ class App:
         t.insert("1.0", self.last)
 
     def expect(self, ev, k):
-        """기대 시도 = 100/확률. 일반: 주문서 1장 + 시도x1회비용 / 일회용: 시도x(주문서+1회비용)
-        반환 (시드, 시드로 환산 못 한 엘소)"""
+        """성공 1회당 기대 시도 = 100/확률. 일반: 주문서 1장 + 시도x1회비용 / 일회용: 시도x(주문서+1회비용)
+        x 필요 성공 횟수. 시드와 엘소는 따로 반환 (시드, 엘소)"""
         try:
-            n = 100 / float(ev["r"])
+            n, succ = 100 / float(ev["r"]), int(ev["s"] or 1)
         except (ValueError, ZeroDivisionError, TypeError):
             return 0, 0
         scroll = ev[k] or 0
@@ -372,15 +373,13 @@ class App:
         if ev["mode"] == "seed":
             seed += (ev["seed"] or 0) * n
         else:
-            elso = round(int(ev["elso"] or 0) * n)
-            if ev["ep"]:
-                seed, elso = seed + elso * ev["ep"], 0
-        return round(seed), elso
+            elso = int(ev["elso"] or 0) * n
+        return round(seed * succ), round(elso * succ)
 
     def ev_save(self, _=None):
         ev = self.cfg["ev"].setdefault(self.cfg["cur"], {})
         for k, v in self.ev_vars.items():
-            ev[k] = v.get().strip() if k in ("r", "elso") else parse_price(v.get())
+            ev[k] = v.get().strip() if k in ("r", "elso", "s") else parse_price(v.get())
         ev["mode"], ev["use"] = self.cost_mode.get() or "seed", self.use.get() or "n"
         self.save(); self.refresh()
 
