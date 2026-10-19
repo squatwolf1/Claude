@@ -172,7 +172,7 @@ class App:
         ttk.Button(bar, text="영역 지정", command=lambda: select_region(root, self.set_region)).pack(side="left")
         ttk.Button(bar, text="스캔", command=self.scan).pack(side="left", padx=4)
         self.auto = tk.BooleanVar(value=bool(self.cfg["auto"]))
-        ttk.Checkbutton(bar, text="자동(3초)", variable=self.auto, command=self.save).pack(side="left")
+        ttk.Checkbutton(bar, text="자동(2초)", variable=self.auto, command=self.save).pack(side="left")
         ttk.Button(bar, text="인식 확인", command=self.show_last).pack(side="left", padx=4)
         self.status = ttk.Label(bar, text="")
         self.status.pack(side="right")
@@ -189,6 +189,9 @@ class App:
             cb.pack(side="left", padx=2)
             cb.bind("<<ComboboxSelected>>", self.pick_equip)
         ttk.Button(eq, text="제작비 DB 저장 →", command=self.db_save).pack(side="right")
+        ttk.Label(eq, text="   재료 순서").pack(side="left")
+        ttk.Button(eq, text="▲ 위로", command=lambda: self.move(-1)).pack(side="left", padx=2)
+        ttk.Button(eq, text="▼ 아래로", command=lambda: self.move(1)).pack(side="left")
 
         db = ttk.Frame(root)
         db.pack(side="right", fill="y", padx=4, pady=4)
@@ -210,8 +213,6 @@ class App:
             e.pack(side="left", padx=2, fill="x", expand=e is self.e_memo)
         self.e_qty.insert(0, "1")
         ttk.Button(add, text="추가/수정", command=self.add).pack(side="left")
-        ttk.Button(add, text="▲ 위로", width=6, command=lambda: self.move(-1)).pack(side="left", padx=(6, 0))
-        ttk.Button(add, text="▼ 아래로", width=7, command=lambda: self.move(1)).pack(side="left")
 
         cols = ("name", "qty", "price", "total", "memo")
         self.tv = ttk.Treeview(root, columns=cols, show="headings", height=10)
@@ -534,7 +535,7 @@ class App:
     def tick(self):
         if self.auto.get() and self.cfg["region"] and not self.busy:
             self.scan()
-        self.root.after(3000, self.tick)
+        self.root.after(2000, self.tick)
 
 
 if __name__ == "__main__":
