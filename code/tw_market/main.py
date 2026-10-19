@@ -14,7 +14,7 @@ except Exception:
 
 BASE = os.path.dirname(sys.executable if getattr(sys, "frozen", False) else os.path.abspath(__file__))
 CFG = os.path.join(BASE, "tw_market.json")
-SLOTS = ["투구", "갑옷", "무기", "손목", "머리", "몸", "손", "다리", "윙"]
+SLOTS = ["투구", "갑옷", "무기", "손목", "머리", "손", "다리", "윙"]
 TIERS = ["엔키라", "엔키라 칼라그", "인퍼널", "아퀼루스", "어비스", "이클립스"]  # 하위 -> 상위
 TIER_COST = {"이클립스": (20232000, "3035"), "어비스": (7272000, "1091")}  # (시드, 엘소)
 RF_COST = {"이클립스": (25838333, "3876", 7751500, "1163"), "어비스": (7238333, "1086", 2171500, "326")}  # 리폼 (1회 시드, 1회 엘소, 잠금당 시드, 잠금당 엘소)
@@ -72,7 +72,7 @@ def capture(region):
 
 # ---------- 파싱 ----------
 PRICE_RE = re.compile(r"(?:(\d+)\s*억)?\s*(?:(\d+)\s*만)?\s*(\d{1,4})?\s*$")
-FIX = str.maketrans({"O": "0", "o": "0", "D": "0", "l": "1", "I": "1", "|": "1", "!": "1", "S": "5", "B": "8",
+FIX = str.maketrans({"O": "0", "o": "0", "D": "0", "l": "1", "I": "1", "|": "1", "!": "1", "S": "5", "B": "8", "〕": "0",
                      "민": "만", "반": "만", "안": "만", "맏": "만", "말": "만", "역": "억", "얶": "억", "먹": "억", "멱": "억", "엌": "억", "덕": "억"})
 
 
@@ -90,14 +90,14 @@ def parse_row(text):
     """'아이템명 840 20만 5000 2일' -> (이름, 개수, 가격)"""
     text = fix_words(text)
     s = re.sub(r"\s*\d+\s*(일|시간|분|밀|잎)\s*$", "", re.sub(r"[,.]", "", text.strip()))  # 남은 시간 제거
-    m = re.search(r"(\d+)\s+((?:\d+\s*억\s*)?(?:\d+\s*만\s*)?\d{1,4})\s*$", s.translate(FIX)) \
-        or re.search(r"(\d+)\s+((?:\d+\s*억\s*)?\d+\s*만)\s*$", s.translate(FIX))
+    # 개수는 OCR이 빠뜨리는 경우가 있어 선택 (없으면 1)
+    m = re.search(r"(?:(\d+)\s+)?((?:\d+\s*억\s*)?\d+\s*만(?:\s*\d{1,4})?|\d+\s*억(?:\s*\d{1,4})?)\s*$", s.translate(FIX))
     if not m:
         return None
     p = PRICE_RE.search(m.group(2))
     price = int(p.group(1) or 0) * 10**8 + int(p.group(2) or 0) * 10**4 + int(p.group(3) or 0)
     name = s[: m.start()]  # 이름은 원문 그대로 (만/억 보정은 가격에만)
-    return name.strip(), int(m.group(1)), price
+    return name.strip(), int(m.group(1) or 1), price
 
 
 def parse_price(s):
@@ -110,7 +110,7 @@ def parse_price(s):
 
 
 # 게임 폰트에서 ㅁ/ㅇ 이 비슷해 생기는 오인식 (양쪽에 똑같이 적용해 비교)
-CONFUSE = str.maketrans({"며": "여", "머": "어", "먹": "억", "뮝": "윙", "윔": "윙", "마": "아", "미": "이", "므": "으", "무": "우", "모": "오"})
+CONFUSE = str.maketrans({"며": "여", "머": "어", "먹": "억", "뮝": "윙", "윔": "윙", "마": "아", "미": "이", "므": "으", "무": "우", "모": "오", "들": "틀"})
 
 
 def norm(s):
@@ -223,6 +223,7 @@ class App:
         for e, t in ((self.e_name, "재료"), (self.e_qty, "개수"), (self.e_price, "가격(비우면 스캔)"), (self.e_memo, "메모")):
             ttk.Label(add, text=t).pack(side="left")
             e.pack(side="left", padx=2, fill="x", expand=e is self.e_memo)
+            e.bind("<Return>", lambda _: self.add())
         self.e_qty.insert(0, "1")
         ttk.Button(add, text="추가/수정", command=self.add).pack(side="left")
 
@@ -519,7 +520,13 @@ class App:
             img = capture(self.cfg["region"])
             img.save(os.path.join(BASE, "scan_debug.png"))
             texts = [" ".join(t for _, t in ws) for _, ws in ocr_lines(img)]
-            rows = [r for r in map(parse_row, texts) if r]
+            rows, last = [], ""
+            for r in filter(None, map(parse_row, texts)):
+                # 이름이 안 읽힌 행은 같은 검색 결과이므로 위(없으면 아래 첫) 이름을 이어받음
+                last = r[0] if re.search("[가-힣]{2}", r[0]) else last
+                rows.append([last, r[1], r[2]])
+            first = next((n for n, _, _ in rows if n), "")
+            rows = [(n or first, c, p) for n, c, p in rows]
             names = {n for rec in self.cfg["recipes"].values() for n, _ in rec}
             hit = []
             sel = self.tv.selection()
