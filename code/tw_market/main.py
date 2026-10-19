@@ -210,6 +210,8 @@ class App:
             e.pack(side="left", padx=2, fill="x", expand=e is self.e_memo)
         self.e_qty.insert(0, "1")
         ttk.Button(add, text="추가/수정", command=self.add).pack(side="left")
+        ttk.Button(add, text="▲ 위로", width=6, command=lambda: self.move(-1)).pack(side="left", padx=(6, 0))
+        ttk.Button(add, text="▼ 아래로", width=7, command=lambda: self.move(1)).pack(side="left")
 
         cols = ("name", "qty", "price", "total", "memo")
         self.tv = ttk.Treeview(root, columns=cols, show="headings", height=10)
@@ -432,6 +434,17 @@ class App:
         if price is not None:
             pr["p"] = price
         self.save(); self.refresh()
+
+    def move(self, d):  # 선택한 재료 순서 이동
+        s = self.tv.selection()
+        if not s:
+            return
+        i, items = int(s[0]), self.items()
+        j = i + d
+        if 0 <= j < len(items):
+            items[i], items[j] = items[j], items[i]
+            self.save(); self.refresh()
+            self.tv.selection_set(str(j)); self.tv.see(str(j))
 
     def remove(self):
         for s in sorted(self.tv.selection(), key=int, reverse=True):
