@@ -15,6 +15,7 @@ except Exception:
 BASE = os.path.dirname(sys.executable if getattr(sys, "frozen", False) else os.path.abspath(__file__))
 CFG = os.path.join(BASE, "tw_market.json")
 SLOTS = ["투구", "갑옷", "무기", "손목", "머리", "손", "다리", "윙"]
+WEAPON_TIERS = ["아르카 본", "아르카 블러드", "아카드", "인퍼널", "아퀼루스", "어비스", "이클립스"]  # 무기 전용
 TIERS = ["엔키라", "엔키라 칼라그", "인퍼널", "아퀼루스", "어비스", "이클립스"]  # 하위 -> 상위
 TIER_COST = {"이클립스": (20232000, "3035"), "어비스": (7272000, "1091")}  # (시드, 엘소)
 RF_COST = {"이클립스": (25838333, "3876", 7751500, "1163"), "어비스": (7238333, "1086", 2171500, "326")}  # 리폼 (1회 시드, 1회 엘소, 잠금당 시드, 잠금당 엘소)
@@ -194,7 +195,8 @@ class App:
         self.cb_slot = ttk.Combobox(eq, state="readonly", values=SLOTS, width=6)
         self.cb_tier = ttk.Combobox(eq, state="readonly", values=TIERS, width=12)
         self.cb_slot.set(cur[1] if cur[1] in SLOTS else SLOTS[0])
-        self.cb_tier.set(cur[0] if cur[0] in TIERS else TIERS[0])
+        self.tier_values()
+        self.cb_tier.set(cur[0] if cur[0] in self.cb_tier["values"] else self.cb_tier["values"][0])
         for t, cb in (("부위", self.cb_slot), ("단계", self.cb_tier)):
             ttk.Label(eq, text=t).pack(side="left")
             cb.pack(side="left", padx=2)
@@ -352,7 +354,14 @@ class App:
         self.save()
         self.status.config(text=f"영역 {r[2]}x{r[3]}")
 
+    def tier_values(self):  # 부위에 맞는 단계 목록 (무기는 별도)
+        vals = WEAPON_TIERS if self.cb_slot.get() == "무기" else TIERS
+        self.cb_tier["values"] = vals
+        if self.cb_tier.get() not in vals:
+            self.cb_tier.set(vals[0])
+
     def pick_equip(self, _=None):
+        self.tier_values()
         self.cfg["cur"] = f"{self.cb_tier.get()} {self.cb_slot.get()}"
         self.cfg["recipes"].setdefault(self.cfg["cur"], [])
         self.tier_cost()
