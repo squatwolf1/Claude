@@ -155,10 +155,11 @@ class App:
                 pass
         self.cfg.pop("items", None)
         self.cfg.setdefault("db", {})
+        self.cfg.setdefault("ev", {})
         self.last = "아직 스캔 안 함"
         root.title("TW 제작 시세표")
         root.attributes("-topmost", True, "-alpha", 0.92)
-        root.geometry("790x450")
+        root.geometry("820x520")
 
         bar = ttk.Frame(root)
         bar.pack(fill="x", padx=4, pady=4)
@@ -202,7 +203,6 @@ class App:
             e.pack(side="left", padx=2, fill="x", expand=e is self.e_name)
         self.e_qty.insert(0, "1")
         ttk.Button(add, text="추가/수정", command=self.add).pack(side="left")
-        ttk.Button(add, text="삭제", command=self.remove).pack(side="left")
 
         cols = ("name", "qty", "price", "total")
         self.tv = ttk.Treeview(root, columns=cols, show="headings", height=10)
@@ -211,6 +211,27 @@ class App:
             self.tv.column(c, width=w, anchor="w" if c == "name" else "e")
         self.tv.pack(fill="both", expand=True, padx=4)
         self.tv.bind("<<TreeviewSelect>>", self.on_select)
+        self.tv.bind("<Delete>", lambda e: self.remove())
+        # 인챈트/리폼 기댓값 (장비별 저장)
+        self.ev_vars, self.ev_lbl, self.ev_ent = {}, {}, {}
+        for key, title, fields in (("e", "인챈트", (("r", "확률%"), ("p", "인챈트 주문서"), ("o", "일회용 주문서"))),
+                                   ("f", "리폼", (("r", "확률%"), ("o", "1회 비용")))):
+            fr = ttk.Frame(root)
+            fr.pack(fill="x", padx=4)
+            ttk.Label(fr, text=title, width=6).pack(side="left")
+            for f, t in fields:
+                k = key + f
+                ttk.Label(fr, text=t).pack(side="left")
+                v = self.ev_vars[k] = tk.StringVar()
+                e = ttk.Entry(fr, textvariable=v, width=4 if f == "r" else 11)
+                e.pack(side="left", padx=1)
+                self.ev_ent[k] = e
+                e.bind("<FocusOut>", self.ev_save)
+                e.bind("<Return>", self.ev_save)
+                if f != "r":
+                    ttk.Button(fr, text="스캔", width=4, command=lambda k=k: self.scan(k)).pack(side="left")
+            self.ev_lbl[key] = ttk.Label(fr, text="", font=("맑은 고딕", 10, "bold"))
+            self.ev_lbl[key].pack(side="right")
         self.sum = tk.Label(root, text="", font=("맑은 고딕", 16, "bold"), fg="#fff", bg="#2b5797", anchor="e", padx=10, pady=6)
         self.sum.pack(fill="x", padx=4, pady=4)
         self.busy = False
@@ -239,6 +260,14 @@ class App:
             miss += p is None
             total += q * (p or 0)
             self.tv.insert("", "end", iid=str(i), values=(n, q, won(p) + self.mark(n), won(None if p is None else q * p)))
+        ev = self.cfg["ev"].setdefault(self.cfg["cur"], {"er": "2"})
+        for k, v in self.ev_vars.items():
+            if self.root.focus_get() is not self.ev_ent[k]:  # 입력 중인 칸은 덮어쓰지 않음
+                v.set(won(ev[k]) if k[1] != "r" and isinstance(ev.get(k), int) else ev.get(k, ""))
+        for key in "ef":
+            x = self.expect(ev, key)
+            total += x
+            self.ev_lbl[key].config(text=f"기댓값 {won(x)}")
         self.total = total
         self.sum.config(text=f"{self.cfg['cur']} 총 제작비: {won(total)}" + (f"  (미확인 {miss})" if miss else ""))
 
@@ -315,9 +344,26 @@ class App:
         t.pack(fill="both", expand=True)
         t.insert("1.0", self.last)
 
-    def scan(self):
+    def expect(self, ev, key):
+        """기댓값 = 인챈트 주문서(1회 구매) + 시도당 비용 x 기대 시도 횟수(100/확률)"""
+        try:
+            rate = float(ev.get(key + "r") or 0)
+        except ValueError:
+            rate = 0
+        if rate <= 0:
+            return 0
+        return int(ev.get(key + "p") or 0) + round((ev.get(key + "o") or 0) * 100 / rate)
+
+    def ev_save(self, _=None):
+        ev = self.cfg["ev"].setdefault(self.cfg["cur"], {})
+        for k, v in self.ev_vars.items():
+            ev[k] = v.get().strip() if k[1] == "r" else parse_price(v.get())
+        self.save(); self.refresh()
+
+    def scan(self, target=None):
         if self.busy:
             return
+        self.target = target
         if not self.cfg["region"]:
             return messagebox.showinfo("", "먼저 '영역 지정'으로 거래소 목록(아이템 이름~개당 가격)을 드래그하세요.")
         self.busy = True
@@ -333,7 +379,11 @@ class App:
             names = {n for rec in self.cfg["recipes"].values() for n, _ in rec}
             hit = []
             sel = self.tv.selection()
-            if sel and rows:  # 재료를 선택해 두면 이름 비교 없이 맨 위 행(최저가) 적용
+            if self.target and rows:  # 인챈트/리폼 스캔 버튼: 맨 위 행 가격
+                self.cfg["ev"].setdefault(self.cfg["cur"], {})[self.target] = rows[0][2]
+                hit.append(self.target)
+                names = set()
+            elif sel and rows:  # 재료를 선택해 두면 이름 비교 없이 맨 위 행(최저가) 적용
                 n = self.items()[int(sel[0])][0]
                 self.cfg["prices"].setdefault(n, {})["p"] = rows[0][2]
                 self.cfg["prices"][n]["m"] = False
@@ -360,7 +410,7 @@ class App:
         self.root.after(0, lambda: (self.status.config(text=msg), setattr(self, "busy", False)))
 
     def tick(self):
-        if self.auto.get() and self.cfg["region"]:
+        if self.auto.get() and self.cfg["region"] and not self.busy:
             self.scan()
         self.root.after(3000, self.tick)
 
