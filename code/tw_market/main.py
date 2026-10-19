@@ -160,11 +160,12 @@ class App:
                 pass
         self.cfg.pop("items", None)
         self.cfg.setdefault("db", {})
+        self.cfg.setdefault("memo", {})  # 재료별 수급 메모
         self.cfg["ev"] = {k: v for k, v in self.cfg.get("ev", {}).items() if "mode" in v}  # 구버전 값 정리
         self.last = "아직 스캔 안 함"
         root.title("TW 제작 시세표")
         root.attributes("-topmost", True, "-alpha", 0.92)
-        root.geometry("900x640")
+        root.geometry("1000x640")
 
         bar = ttk.Frame(root)
         bar.pack(fill="x", padx=4, pady=4)
@@ -202,18 +203,19 @@ class App:
 
         add = ttk.Frame(root)
         add.pack(fill="x", padx=4, pady=4)
-        self.e_name, self.e_qty, self.e_price = ttk.Entry(add), ttk.Entry(add, width=5), ttk.Entry(add, width=12)
-        for e, t in ((self.e_name, "재료"), (self.e_qty, "개수"), (self.e_price, "가격(비우면 스캔)")):
+        self.e_name, self.e_qty, self.e_price = ttk.Entry(add, width=18), ttk.Entry(add, width=5), ttk.Entry(add, width=12)
+        self.e_memo = ttk.Entry(add)
+        for e, t in ((self.e_name, "재료"), (self.e_qty, "개수"), (self.e_price, "가격(비우면 스캔)"), (self.e_memo, "메모")):
             ttk.Label(add, text=t).pack(side="left")
-            e.pack(side="left", padx=2, fill="x", expand=e is self.e_name)
+            e.pack(side="left", padx=2, fill="x", expand=e is self.e_memo)
         self.e_qty.insert(0, "1")
         ttk.Button(add, text="추가/수정", command=self.add).pack(side="left")
 
-        cols = ("name", "qty", "price", "total")
+        cols = ("name", "qty", "price", "total", "memo")
         self.tv = ttk.Treeview(root, columns=cols, show="headings", height=10)
-        for c, t, w in zip(cols, ("재료", "개수", "최저 개당가", "합계"), (170, 50, 120, 120)):
+        for c, t, w in zip(cols, ("재료", "개수", "최저 개당가", "합계", "메모(수급처)"), (170, 45, 115, 115, 200)):
             self.tv.heading(c, text=t)
-            self.tv.column(c, width=w, anchor="w" if c == "name" else "e")
+            self.tv.column(c, width=w, anchor="w" if c in ("name", "memo") else "e")
         self.tv.pack(fill="both", expand=True, padx=4)
         self.tv.bind("<<TreeviewSelect>>", self.on_select)
         self.tv.bind("<Delete>", lambda e: self.remove())
@@ -296,7 +298,7 @@ class App:
             p = self.price(n)
             miss += p is None
             total += q * (p or 0)
-            self.tv.insert("", "end", iid=str(i), values=(n, q, won(p) + self.mark(n), won(None if p is None else q * p)))
+            self.tv.insert("", "end", iid=str(i), values=(n, q, won(p) + self.mark(n), won(None if p is None else q * p), self.cfg["memo"].get(n, "")))
         if self.cfg["cur"] not in self.cfg["ev"]:
             self.tier_cost()
         ev = self.cfg["ev"].setdefault(self.cfg["cur"], {})
@@ -403,7 +405,8 @@ class App:
         if s:
             n, q = self.items()[int(s[0])]
             pr = self.cfg["prices"].get(n, {})
-            for e, v in ((self.e_name, n), (self.e_qty, q), (self.e_price, won(pr.get("p")) if pr.get("m") else "")):
+            for e, v in ((self.e_name, n), (self.e_qty, q), (self.e_price, won(pr.get("p")) if pr.get("m") else ""),
+                         (self.e_memo, self.cfg["memo"].get(n, ""))):
                 e.delete(0, "end"); e.insert(0, v)
 
     def add(self):
@@ -425,6 +428,7 @@ class App:
             items.append([name, qty])
         pr = self.cfg["prices"].setdefault(name, {"p": None})
         pr["m"] = price is not None
+        self.cfg["memo"][name] = self.e_memo.get().strip()
         if price is not None:
             pr["p"] = price
         self.save(); self.refresh()
