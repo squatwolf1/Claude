@@ -19,7 +19,7 @@ TIERS = ["엔키라", "엔키라 칼라그", "인퍼널", "아퀼루스", "어�
 TIER_COST = {"이클립스": (20232000, "3035"), "어비스": (7272000, "1091")}  # (시드, 엘소)
 RF_COST = {"이클립스": (25838333, "3876", 7751500, "1163"), "어비스": (7238333, "1086", 2171500, "326")}  # 리폼 (1회 시드, 1회 엘소, 잠금당 시드, 잠금당 엘소)
 STR_KEYS = {"r", "elso", "s", "felso", "lelso", "pm", "pa", "pb"}
-EV_DEFAULT = {"fmode": "seed", "fseed": 25838333, "felso": "3876", "lseed": 7751500, "lelso": "1163",
+EV_DEFAULT = {"ue": False, "uf": False, "fmode": "seed", "fseed": 25838333, "felso": "3876", "lseed": 7751500, "lelso": "1163",
               "pm": "3", "pa": "5", "pb": "2.5", "r": "2", "seed": 20232000, "elso": "3035", "s": "1", "n": None, "o": None, "mode": "seed", "use": "n"}
 DEFAULT_RECIPES = {"이클립스 윙": [["어비스 윙", 1], ["가짜 달여왕 군단의 휘장 장식", 3], ["가공된 달의 광물", 1],
                                   ["룬의 원석", 20], ["달의 약초", 100], ["가짜 달여왕 군단의 인장", 6]]}
@@ -237,7 +237,8 @@ class App:
                 ttk.Button(fr, text="스캔", width=4, command=lambda: self.scan(k)).pack(side="left")
 
         f1 = ttk.Frame(root); f1.pack(fill="x", padx=4)
-        ttk.Label(f1, text="인챈트", font=("맑은 고딕", 9, "bold")).pack(side="left")
+        self.inc = {"ue": tk.BooleanVar(), "uf": tk.BooleanVar()}  # 인챈트/리폼 총 제작비 포함 여부
+        ttk.Checkbutton(f1, text="인챈트 포함", variable=self.inc["ue"], command=self.ev_save).pack(side="left")
         field(f1, "r", "확률%", 4)
         lf = ttk.LabelFrame(f1, text="1회 비용 지불")
         lf.pack(side="left", padx=6)
@@ -255,7 +256,7 @@ class App:
             field(f2, k, t, 16)
         # 리폼: 주스탯 + 부스탯 2개. 성공한 줄은 잠금(잠금 1개당 1회 비용 추가)
         f3 = ttk.Frame(root); f3.pack(fill="x", padx=4, pady=(6, 0))
-        ttk.Label(f3, text="리폼", font=("맑은 고딕", 9, "bold")).pack(side="left")
+        ttk.Checkbutton(f3, text="리폼 포함", variable=self.inc["uf"], command=self.ev_save).pack(side="left")
         lf = ttk.LabelFrame(f3, text="1회 비용 지불")
         lf.pack(side="left", padx=6)
         self.fmode = tk.StringVar()
@@ -308,17 +309,20 @@ class App:
         for k, d in EV_DEFAULT.items():
             ev.setdefault(k, d)
         self.cost_mode.set(ev["mode"]); self.use.set(ev["use"]); self.fmode.set(ev["fmode"])
+        for k, v in self.inc.items():
+            v.set(ev[k])
         for k, v in self.ev_vars.items():
             if self.root.focus_get() is not self.ev_ent[k]:  # 입력 중인 칸은 덮어쓰지 않음
                 v.set(ev[k] if k in STR_KEYS else won(ev[k]) if ev[k] is not None else "")
         res = {k: self.expect(ev, k) for k in "no"}
         fmt = lambda se, el: " + ".join([f"{won(se)} 시드"] * bool(se or not el) + [f"{el:,} 엘소"] * bool(el))
         self.ev_lbl.config(text="  |  ".join(("▶ " if k == ev["use"] else "") + f"{t} 인챈트 기댓값: {fmt(*res[k])}"
-                                            for k, t in (("n", "일반"), ("o", "일회용"))))
-        seed, elso = res[ev["use"]]
+                                            for k, t in (("n", "일반"), ("o", "일회용"))) + ("" if ev["ue"] else "  [미포함]"))
+        seed, elso = res[ev["use"]] if ev["ue"] else (0, 0)
         rs, re_, tries = self.reform(ev)
-        self.rf_lbl.config(text=f"리폼 기댓값 (평균 {tries:.0f}회): {fmt(rs, re_)}")
-        seed, elso = seed + rs, elso + re_
+        self.rf_lbl.config(text=f"리폼 기댓값 (평균 {tries:.0f}회): {fmt(rs, re_)}" + ("" if ev["uf"] else "  [미포함]"))
+        if ev["uf"]:
+            seed, elso = seed + rs, elso + re_
         total += seed
         self.total = total
         self.sum.config(text=f"{self.cfg['cur']} 총 제작비: {won(total)} 시드" + (f" + {elso:,} 엘소" if elso else "") + (f"  (미확인 {miss})" if miss else ""))
@@ -480,6 +484,8 @@ class App:
         ev = self.cfg["ev"].setdefault(self.cfg["cur"], {})
         for k, v in self.ev_vars.items():
             ev[k] = v.get().strip() if k in STR_KEYS else parse_price(v.get())
+        for k, v in self.inc.items():
+            ev[k] = v.get()
         ev["mode"], ev["use"], ev["fmode"] = self.cost_mode.get() or "seed", self.use.get() or "n", self.fmode.get() or "seed"
         self.save(); self.refresh()
 
