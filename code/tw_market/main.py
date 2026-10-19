@@ -16,6 +16,7 @@ BASE = os.path.dirname(sys.executable if getattr(sys, "frozen", False) else os.p
 CFG = os.path.join(BASE, "tw_market.json")
 SLOTS = ["투구", "갑옷", "무기", "손목", "머리", "몸", "손", "다리", "윙"]
 TIERS = ["엔키라", "엔키라 칼라그", "인퍼널", "아퀼루스", "어비스", "이클립스"]  # 하위 -> 상위
+TIER_COST = {"이클립스": (20232000, "3035"), "어비스": (7272000, "1091")}  # (시드, 엘소)
 EV_DEFAULT = {"r": "2", "seed": 20232000, "elso": "3035", "s": "1", "n": None, "o": None, "mode": "seed", "use": "n"}
 DEFAULT_RECIPES = {"이클립스 윙": [["어비스 윙", 1], ["가짜 달여왕 군단의 휘장 장식", 3], ["가공된 달의 광물", 1],
                                   ["룬의 원석", 20], ["달의 약초", 100], ["가짜 달여왕 군단의 인장", 6]]}
@@ -230,11 +231,14 @@ class App:
         f1 = ttk.Frame(root); f1.pack(fill="x", padx=4)
         ttk.Label(f1, text="인챈트", font=("맑은 고딕", 9, "bold")).pack(side="left")
         field(f1, "r", "확률%", 4)
-        ttk.Label(f1, text="  1회 비용").pack(side="left")
+        lf = ttk.LabelFrame(f1, text="1회 비용 지불")
+        lf.pack(side="left", padx=6)
         for m, t in (("seed", "시드"), ("elso", "엘소")):
-            ttk.Radiobutton(f1, text=t, value=m, variable=self.cost_mode, command=self.ev_save).pack(side="left")
-        field(f1, "seed", "시드", 10)
-        field(f1, "elso", "엘소", 6)
+            ttk.Radiobutton(lf, text=t, value=m, variable=self.cost_mode, command=self.ev_save).pack(side="left")
+        ttk.Separator(f1, orient="vertical").pack(side="left", fill="y", padx=4)
+        field(f1, "seed", "1회 시드", 10)
+        field(f1, "elso", "  1회 엘소", 6)
+        ttk.Separator(f1, orient="vertical").pack(side="left", fill="y", padx=4)
         field(f1, "s", "  필요 성공 횟수", 4)
         f2 = ttk.Frame(root); f2.pack(fill="x", padx=4)
         self.ev_lbl = {}
@@ -271,6 +275,8 @@ class App:
             miss += p is None
             total += q * (p or 0)
             self.tv.insert("", "end", iid=str(i), values=(n, q, won(p) + self.mark(n), won(None if p is None else q * p)))
+        if self.cfg["cur"] not in self.cfg["ev"]:
+            self.tier_cost()
         ev = self.cfg["ev"].setdefault(self.cfg["cur"], {})
         for k, d in EV_DEFAULT.items():
             ev.setdefault(k, d)
@@ -299,7 +305,14 @@ class App:
     def pick_equip(self, _=None):
         self.cfg["cur"] = f"{self.cb_tier.get()} {self.cb_slot.get()}"
         self.cfg["recipes"].setdefault(self.cfg["cur"], [])
+        self.tier_cost()
         self.save(); self.refresh()
+
+    def tier_cost(self):  # 단계별 인챈트 1회 비용 자동 적용
+        tier = self.cfg["cur"].rsplit(" ", 1)[0]
+        if tier in TIER_COST:
+            ev = self.cfg["ev"].setdefault(self.cfg["cur"], {})
+            ev["seed"], ev["elso"] = TIER_COST[tier]
 
     def db_save(self):
         self.cfg["db"][self.cfg["cur"]] = self.total
