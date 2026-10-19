@@ -73,19 +73,30 @@ def capture(region):
 # ---------- 파싱 ----------
 PRICE_RE = re.compile(r"(?:(\d+)\s*억)?\s*(?:(\d+)\s*만)?\s*(\d{1,4})?\s*$")
 FIX = str.maketrans({"O": "0", "o": "0", "D": "0", "l": "1", "I": "1", "|": "1", "!": "1", "S": "5", "B": "8",
-                     ",": "", ".": "", "민": "만", "반": "만", "안": "만", "맏": "만", "말": "만", "역": "억", "얶": "억", "먹": "억", "멱": "억", "엌": "억", "덕": "억"})
+                     "민": "만", "반": "만", "안": "만", "맏": "만", "말": "만", "역": "억", "얶": "억", "먹": "억", "멱": "억", "엌": "억", "덕": "억"})
+
+
+# 한글 자모가 영문/기호로 깨져 읽히는 경우 (긴 것부터 치환)
+WORD_FIX = [("CH))H", "어깨"), ("CH", "어"), ("A|", "시"), ("Al", "시"), ("AI", "시"), ("Bl", "비"), ("BI", "비")]
+
+
+def fix_words(s):
+    for a, b in WORD_FIX:
+        s = s.replace(a, b)
+    return s
 
 
 def parse_row(text):
     """'아이템명 840 20만 5000 2일' -> (이름, 개수, 가격)"""
-    s = re.sub(r"\s*\d+\s*(일|시간|분|밀|잎)\s*$", "", text.strip())  # 남은 시간 제거
+    text = fix_words(text)
+    s = re.sub(r"\s*\d+\s*(일|시간|분|밀|잎)\s*$", "", re.sub(r"[,.]", "", text.strip()))  # 남은 시간 제거
     m = re.search(r"(\d+)\s+((?:\d+\s*억\s*)?(?:\d+\s*만\s*)?\d{1,4})\s*$", s.translate(FIX)) \
         or re.search(r"(\d+)\s+((?:\d+\s*억\s*)?\d+\s*만)\s*$", s.translate(FIX))
     if not m:
         return None
     p = PRICE_RE.search(m.group(2))
     price = int(p.group(1) or 0) * 10**8 + int(p.group(2) or 0) * 10**4 + int(p.group(3) or 0)
-    name = s.translate(FIX)[: m.start()]
+    name = s[: m.start()]  # 이름은 원문 그대로 (만/억 보정은 가격에만)
     return name.strip(), int(m.group(1)), price
 
 
@@ -195,7 +206,8 @@ class App:
 
         db = ttk.Frame(root)
         db.pack(side="right", fill="y", padx=4, pady=4)
-        ttk.Label(db, text="제작비 DB (더블클릭 = 재료로 추가)").pack()
+        self.db_title = ttk.Label(db, text="")
+        self.db_title.pack()
         self.dbv = ttk.Treeview(db, columns=("n", "p"), show="headings")
         for c, t, w in (("n", "장비", 120), ("p", "제작비", 110)):
             self.dbv.heading(c, text=t)
@@ -294,8 +306,11 @@ class App:
 
     def refresh(self):
         self.dbv.delete(*self.dbv.get_children())
+        slot = self.cfg["cur"].rsplit(" ", 1)[-1]
+        self.db_title.config(text=f"[{slot}] 제작비 DB (더블클릭 = 재료로 추가)")
         for n, p in self.cfg["db"].items():
-            self.dbv.insert("", "end", iid=n, values=(n, won(p)))
+            if n.rsplit(" ", 1)[-1] == slot:  # 현재 부위만 표시
+                self.dbv.insert("", "end", iid=n, values=(n, won(p)))
         self.tv.delete(*self.tv.get_children())
         total, miss = 0, 0
         for i, (n, q) in enumerate(self.items()):
