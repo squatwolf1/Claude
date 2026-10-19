@@ -87,17 +87,27 @@ def fix_words(s):
     return s
 
 
+NUMISH = re.compile(r"[\d〕lI|!OoDSB기日\[\]「」\-?만억먹멱엌덕역얶민반안맏말]+")
+
+
 def parse_row(text):
     """'아이템명 840 20만 5000 2일' -> (이름, 개수, 가격)"""
-    text = fix_words(text)
-    s = re.sub(r"\s*\d+\s*(일|시간|분|밀|잎)\s*$", "", re.sub(r"[,.]", "", text.strip()))  # 남은 시간 제거
-    # 개수는 OCR이 빠뜨리는 경우가 있어 선택 (없으면 1)
-    m = re.search(r"(?:(\d+)\s+)?((?:\d+\s*억\s*)?\d+\s*만(?:\s*\d{1,4})?|\d+\s*억(?:\s*\d{1,4})?)\s*$", s.translate(FIX))
+    text = fix_words(re.sub(r"[,.:]", "", text.strip()))
+    s = re.sub(r"\s*[\d?]*\s*(일|시간|분|밀|잎)\s*$", "", text)  # 남은 시간 제거
+    # 끝에서부터 숫자처럼 생긴 토큰 = 개수/가격, 나머지 = 이름(원문 그대로)
+    tok = s.split()
+    i = len(tok)
+    while i and NUMISH.fullmatch(tok[i - 1]):
+        i -= 1
+    name, tail = " ".join(tok[:i]), " ".join(tok[i:])
+    tail = re.sub(r"기(?=\d*\s*[억먹멱엌덕역얶])", "21", tail)  # '21억' -> '기억'
+    tail = re.sub(r"[1lI|]?〕", "0", tail).translate(FIX)       # '40만' -> '41〕만'
+    m = re.fullmatch(r"(?:(\d+)\s+)?((?:\d+\s*억\s*)?\d+\s*만(?:\s*\d{1,4})?|\d+\s*억(?:\s*\d{1,4})?)", tail) \
+        or re.fullmatch(r"(\d+)\s+(\d{1,4})", tail)  # 1만 미만 가격은 개수가 있어야 인정
     if not m:
         return None
     p = PRICE_RE.search(m.group(2))
     price = int(p.group(1) or 0) * 10**8 + int(p.group(2) or 0) * 10**4 + int(p.group(3) or 0)
-    name = s[: m.start()]  # 이름은 원문 그대로 (만/억 보정은 가격에만)
     return name.strip(), int(m.group(1) or 1), price
 
 
@@ -111,7 +121,7 @@ def parse_price(s):
 
 
 # 게임 폰트에서 ㅁ/ㅇ 이 비슷해 생기는 오인식 (양쪽에 똑같이 적용해 비교)
-CONFUSE = str.maketrans({"며": "여", "머": "어", "먹": "억", "뮝": "윙", "윔": "윙", "마": "아", "미": "이", "므": "으", "무": "우", "모": "오", "들": "틀"})
+CONFUSE = str.maketrans({"며": "여", "머": "어", "먹": "억", "뮝": "윙", "윔": "윙", "마": "아", "미": "이", "므": "으", "무": "우", "모": "오", "들": "틀", "화": "하", "혈": "결"})
 
 
 def norm(s):
@@ -534,18 +544,18 @@ class App:
                 # 이름이 안 읽힌 행은 같은 검색 결과이므로 위(없으면 아래 첫) 이름을 이어받음
                 last = r[0] if re.search("[가-힣]{2}", r[0]) else last
                 rows.append([last, r[1], r[2]])
-            first = next((n for n, _, _ in rows if n), "")
-            rows = [(n or first, c, p) for n, c, p in rows]
+            allrows = rows  # 선택 스캔용 (이름 없어도 맨 위 행)
+            rows = [r for r in rows if r[0]]  # 이름 비교용: 이름은 위 행에서 아래로만 이어받음
             names = {n for rec in self.cfg["recipes"].values() for n, _ in rec}
             hit = []
             sel = self.tv.selection()
-            if self.target and rows:  # 인챈트/리폼 스캔 버튼: 맨 위 행 가격
-                self.cfg["ev"].setdefault(self.cfg["cur"], {})[self.target] = rows[0][2]
+            if self.target and allrows:  # 인챈트/리폼 스캔 버튼: 맨 위 행 가격
+                self.cfg["ev"].setdefault(self.cfg["cur"], {})[self.target] = allrows[0][2]
                 hit.append(self.target)
                 names = set()
-            elif sel and rows:  # 재료를 선택해 두면 이름 비교 없이 맨 위 행(최저가) 적용
+            elif sel and allrows:  # 재료를 선택해 두면 이름 비교 없이 맨 위 행(최저가) 적용
                 n = self.items()[int(sel[0])][0]
-                self.cfg["prices"].setdefault(n, {})["p"] = rows[0][2]
+                self.cfg["prices"].setdefault(n, {})["p"] = allrows[0][2]
                 self.cfg["prices"][n]["m"] = False
                 hit.append(n)
                 names = set()
@@ -559,7 +569,7 @@ class App:
                         hit.append(n)
                         break
             self.last = "[OCR 원문]\n" + "\n".join(texts) + "\n\n[해석된 행] (이름 | 개수 | 가격)\n" + \
-                "\n".join(f"{a} | {b} | {won(c)}" for a, b, c in rows) + "\n\n[일치] " + ", ".join(hit) + \
+                "\n".join(f"{a} | {b} | {won(c)}" for a, b, c in allrows) + "\n\n[일치] " + ", ".join(hit) + \
                 "\n\n캡처 이미지: scan_debug.png"
             msg = f"행 {len(rows)} / 일치 {len(hit)}"
             self.root.after(0, lambda: (self.save(), self.refresh()))
