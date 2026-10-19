@@ -17,7 +17,10 @@ CFG = os.path.join(BASE, "tw_market.json")
 SLOTS = ["투구", "갑옷", "무기", "손목", "머리", "몸", "손", "다리", "윙"]
 TIERS = ["엔키라", "엔키라 칼라그", "인퍼널", "아퀼루스", "어비스", "이클립스"]  # 하위 -> 상위
 TIER_COST = {"이클립스": (20232000, "3035"), "어비스": (7272000, "1091")}  # (시드, 엘소)
-EV_DEFAULT = {"r": "2", "seed": 20232000, "elso": "3035", "s": "1", "n": None, "o": None, "mode": "seed", "use": "n"}
+RF_COST = {"이클립스": (25838333, "3876", 7751500, "1163")}  # 리폼 (1회 시드, 1회 엘소, 잠금당 시드, 잠금당 엘소)
+STR_KEYS = {"r", "elso", "s", "felso", "lelso", "pm", "pa", "pb"}
+EV_DEFAULT = {"fmode": "seed", "fseed": 25838333, "felso": "3876", "lseed": 7751500, "lelso": "1163",
+              "pm": "3", "pa": "5", "pb": "2.5", "r": "2", "seed": 20232000, "elso": "3035", "s": "1", "n": None, "o": None, "mode": "seed", "use": "n"}
 DEFAULT_RECIPES = {"이클립스 윙": [["어비스 윙", 1], ["가짜 달여왕 군단의 휘장 장식", 3], ["가공된 달의 광물", 1],
                                   ["룬의 원석", 20], ["달의 약초", 100], ["가짜 달여왕 군단의 인장", 6]]}
 
@@ -161,7 +164,7 @@ class App:
         self.last = "아직 스캔 안 함"
         root.title("TW 제작 시세표")
         root.attributes("-topmost", True, "-alpha", 0.92)
-        root.geometry("860x560")
+        root.geometry("900x640")
 
         bar = ttk.Frame(root)
         bar.pack(fill="x", padx=4, pady=4)
@@ -244,11 +247,30 @@ class App:
         self.ev_lbl = {}
         for k, t in (("n", "일반 주문서"), ("o", "일회용 주문서")):
             ttk.Radiobutton(f2, value=k, variable=self.use, command=self.ev_save).pack(side="left")
-            field(f2, k, t, 16, True)
+            field(f2, k, t, 16)
+        # 리폼: 주스탯 + 부스탯 2개. 성공한 줄은 잠금(잠금 1개당 1회 비용 추가)
+        f3 = ttk.Frame(root); f3.pack(fill="x", padx=4, pady=(6, 0))
+        ttk.Label(f3, text="리폼", font=("맑은 고딕", 9, "bold")).pack(side="left")
+        lf = ttk.LabelFrame(f3, text="1회 비용 지불")
+        lf.pack(side="left", padx=6)
+        self.fmode = tk.StringVar()
+        for m, t in (("seed", "시드"), ("elso", "엘소")):
+            ttk.Radiobutton(lf, text=t, value=m, variable=self.fmode, command=self.ev_save).pack(side="left")
+        ttk.Separator(f3, orient="vertical").pack(side="left", fill="y", padx=4)
+        field(f3, "fseed", "1회 시드", 10)
+        field(f3, "felso", "  1회 엘소", 6)
+        ttk.Separator(f3, orient="vertical").pack(side="left", fill="y", padx=4)
+        field(f3, "lseed", "잠금 1개당 시드", 9)
+        field(f3, "lelso", "  엘소", 5)
+        f4 = ttk.Frame(root); f4.pack(fill="x", padx=4)
+        for k, t in (("pm", "주스탯 확률%"), ("pa", "  부스탯1(92) 확률%"), ("pb", "  부스탯2(180) 확률%")):
+            field(f4, k, t, 5)
         self.sum = tk.Label(root, text="", font=("맑은 고딕", 16, "bold"), fg="#fff", bg="#2b5797", anchor="e", padx=10, pady=6)
         self.sum.pack(fill="x", padx=4, pady=(4, 0))
         self.ev_lbl = tk.Label(root, text="", font=("맑은 고딕", 11, "bold"), fg="#fff", bg="#3c6db0", anchor="e", justify="right", padx=10, pady=4)
-        self.ev_lbl.pack(fill="x", padx=4, pady=(0, 4))
+        self.ev_lbl.pack(fill="x", padx=4)
+        self.rf_lbl = tk.Label(root, text="", font=("맑은 고딕", 11, "bold"), fg="#fff", bg="#4a7cc0", anchor="e", padx=10, pady=4)
+        self.rf_lbl.pack(fill="x", padx=4, pady=(0, 4))
         self.busy = False
         self.refresh()
         self.tick()
@@ -280,15 +302,18 @@ class App:
         ev = self.cfg["ev"].setdefault(self.cfg["cur"], {})
         for k, d in EV_DEFAULT.items():
             ev.setdefault(k, d)
-        self.cost_mode.set(ev["mode"]); self.use.set(ev["use"])
+        self.cost_mode.set(ev["mode"]); self.use.set(ev["use"]); self.fmode.set(ev["fmode"])
         for k, v in self.ev_vars.items():
             if self.root.focus_get() is not self.ev_ent[k]:  # 입력 중인 칸은 덮어쓰지 않음
-                v.set(ev[k] if k in ("r", "elso", "s") else won(ev[k]) if ev[k] is not None else "")
+                v.set(ev[k] if k in STR_KEYS else won(ev[k]) if ev[k] is not None else "")
         res = {k: self.expect(ev, k) for k in "no"}
-        fmt = lambda se, el: f"{won(se)} 시드" + (f" + {el:,} 엘소" if el else "")
+        fmt = lambda se, el: " + ".join([f"{won(se)} 시드"] * bool(se or not el) + [f"{el:,} 엘소"] * bool(el))
         self.ev_lbl.config(text="  |  ".join(("▶ " if k == ev["use"] else "") + f"{t} 인챈트 기댓값: {fmt(*res[k])}"
                                             for k, t in (("n", "일반"), ("o", "일회용"))))
         seed, elso = res[ev["use"]]
+        rs, re_, tries = self.reform(ev)
+        self.rf_lbl.config(text=f"리폼 기댓값 (평균 {tries:.0f}회): {fmt(rs, re_)}")
+        seed, elso = seed + rs, elso + re_
         total += seed
         self.total = total
         self.sum.config(text=f"{self.cfg['cur']} 총 제작비: {won(total)} 시드" + (f" + {elso:,} 엘소" if elso else "") + (f"  (미확인 {miss})" if miss else ""))
@@ -313,6 +338,50 @@ class App:
         if tier in TIER_COST:
             ev = self.cfg["ev"].setdefault(self.cfg["cur"], {})
             ev["seed"], ev["elso"] = TIER_COST[tier]
+        if tier in RF_COST:
+            ev = self.cfg["ev"].setdefault(self.cfg["cur"], {})
+            ev["fseed"], ev["felso"], ev["lseed"], ev["lelso"] = RF_COST[tier]
+
+    def reform(self, ev):
+        """성공한 스탯은 바로 잠그는 전략의 기댓값. 상태 = 잠긴 스탯 집합,
+        E[S] = (1회비용 + 잠금수x잠금비용 + Σ P(새로 성공 T)·E[S∪T]) / (1 - P(아무것도 성공 안 함))
+        반환 (시드, 엘소, 평균 시도 횟수)"""
+        try:
+            p = [float(ev[k]) / 100 for k in ("pm", "pa", "pb")]
+        except (ValueError, TypeError):
+            return 0, 0, 0
+        if not all(0 < x <= 1 for x in p):
+            return 0, 0, 0
+        seed = ev["fmode"] == "seed"
+        base = (ev["fseed"] or 0) if seed else int(ev["felso"] or 0)
+        lock = (ev["lseed"] or 0) if seed else int(ev["lelso"] or 0)
+
+        memo = {}
+
+        def solve(mask):  # -> (기대 비용, 기대 시도)
+            if mask == 7:
+                return 0.0, 0.0
+            if mask in memo:
+                return memo[mask]
+            free = [i for i in range(3) if not mask >> i & 1]
+            c, t, stay = base + bin(mask).count("1") * lock, 1.0, 0.0
+            for sub in range(1 << len(free)):
+                pr, nm = 1.0, mask
+                for j, i in enumerate(free):
+                    if sub >> j & 1:
+                        pr *= p[i]; nm |= 1 << i
+                    else:
+                        pr *= 1 - p[i]
+                if nm == mask:
+                    stay = pr
+                else:
+                    ec, et = solve(nm)
+                    c += pr * ec; t += pr * et
+            memo[mask] = (c / (1 - stay), t / (1 - stay))
+            return memo[mask]
+
+        cost, tries = solve(0)
+        return (round(cost), 0, tries) if seed else (0, round(cost), tries)
 
     def db_save(self):
         self.cfg["db"][self.cfg["cur"]] = self.total
@@ -392,8 +461,8 @@ class App:
     def ev_save(self, _=None):
         ev = self.cfg["ev"].setdefault(self.cfg["cur"], {})
         for k, v in self.ev_vars.items():
-            ev[k] = v.get().strip() if k in ("r", "elso", "s") else parse_price(v.get())
-        ev["mode"], ev["use"] = self.cost_mode.get() or "seed", self.use.get() or "n"
+            ev[k] = v.get().strip() if k in STR_KEYS else parse_price(v.get())
+        ev["mode"], ev["use"], ev["fmode"] = self.cost_mode.get() or "seed", self.use.get() or "n", self.fmode.get() or "seed"
         self.save(); self.refresh()
 
     def scan(self, target=None):
