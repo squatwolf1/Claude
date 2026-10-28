@@ -37,7 +37,7 @@ import com.squatwolf.gagyebu.LedgerViewModel
 import java.time.LocalDate
 import kotlinx.coroutines.launch
 
-private val expenseCategories = listOf("식비", "교통", "쇼핑", "생활", "공과금", "대출", "의료", "문화", "기타")
+private val expenseCategories = listOf("식비", "교통", "쇼핑", "공과금", "대출", "유류", "병원", "기타")
 private val incomeCategories = listOf("월급", "용돈", "부수입", "기타")
 private val methods = listOf("카드", "현금", "계좌이체")
 
