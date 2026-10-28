@@ -32,13 +32,16 @@ jobs:
           fi
           ./gradlew --no-daemon assembleRelease
           cp app/build/outputs/apk/release/app-release.apk gagyebu.apk
+          cp busalarm/build/outputs/apk/release/busalarm-release.apk busalarm.apk
 
       # PR·수동 실행 빌드는 Actions 산출물로 3일만 보관한다.
       - uses: actions/upload-artifact@v4
         if: github.event_name != 'push'
         with:
           name: gagyebu-apk-${{ github.sha }}
-          path: gagyebu.apk
+          path: |
+            gagyebu.apk
+            busalarm.apk
           retention-days: 3
 
       - name: 릴리스 올리기
@@ -48,4 +51,6 @@ jobs:
           tag_name: build-${{ github.run_number }}
           name: 빌드 ${{ github.run_number }}
           make_latest: true
-          files: gagyebu.apk
+          files: |
+            gagyebu.apk
+            busalarm.apk

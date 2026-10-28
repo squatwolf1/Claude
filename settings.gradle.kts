@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "gagyebu"
-include(":app")
+include(":app", ":busalarm")
