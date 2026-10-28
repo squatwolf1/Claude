@@ -33,6 +33,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.squatwolf.gagyebu.AppExit
 import com.squatwolf.gagyebu.LedgerViewModel
 import java.time.LocalDate
 import kotlinx.coroutines.launch
@@ -156,6 +157,7 @@ fun ShareDialog(vm: LedgerViewModel, onDismiss: () -> Unit) {
                             val send = Intent(Intent.ACTION_SEND)
                                 .setType("text/plain")
                                 .putExtra(Intent.EXTRA_TEXT, "꼬빵 초대코드: $code\n앱의 공유 버튼 → 코드 입력에 넣어 줘!")
+                            AppExit.leavingForExternal = true
                             context.startActivity(Intent.createChooser(send, "초대코드 보내기"))
                         }) { Text("코드 보내기") }
                         HorizontalDivider()
