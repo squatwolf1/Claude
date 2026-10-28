@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 꼬빵 아이콘: 산호색 가계부 수첩 + 원(₩) 동전. 108dp 캔버스, 안전 영역(21~87) 안에 그림 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 그림자 -->
+    <path
+        android:fillColor="#22B0634A"
+        android:pathData="M38,29 H70 A6,6 0 0 1 76,35 V77 A6,6 0 0 1 70,83 H38 A6,6 0 0 1 32,77 V35 A6,6 0 0 1 38,29 Z" />
+    <!-- 수첩 표지 -->
+    <path
+        android:fillColor="#FF8A7A"
+        android:pathData="M36,26 H68 A6,6 0 0 1 74,32 V74 A6,6 0 0 1 68,80 H36 A6,6 0 0 1 30,74 V32 A6,6 0 0 1 36,26 Z" />
+    <!-- 책등 -->
+    <path
+        android:fillColor="#F0675A"
+        android:pathData="M36,26 H39 V80 H36 A6,6 0 0 1 30,74 V32 A6,6 0 0 1 36,26 Z" />
+    <!-- 속지 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M45,31 H66 A3,3 0 0 1 69,34 V72 A3,3 0 0 1 66,75 H45 A3,3 0 0 1 42,72 V34 A3,3 0 0 1 45,31 Z" />
+    <!-- 줄 -->
+    <path
+        android:strokeColor="#FFD0C7"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M46,40 H65 M46,47 H65 M46,54 H57 M46,61 H55" />
+    <!-- 하트 -->
+    <path
+        android:fillColor="#FF8A7A"
+        android:pathData="M61,35.5 C61,34 63,33.5 63.8,35 C64.6,33.5 66.6,34 66.6,35.5 C66.6,37.3 63.8,39 63.8,39 C63.8,39 61,37.3 61,35.5 Z" />
+    <!-- 스프링 고리 -->
+    <path
+        android:fillColor="#FFF3E3"
+        android:pathData="M32.6,36 a1.9,1.9 0 1,0 3.8,0 a1.9,1.9 0 1,0 -3.8,0 M32.6,46 a1.9,1.9 0 1,0 3.8,0 a1.9,1.9 0 1,0 -3.8,0 M32.6,56 a1.9,1.9 0 1,0 3.8,0 a1.9,1.9 0 1,0 -3.8,0 M32.6,66 a1.9,1.9 0 1,0 3.8,0 a1.9,1.9 0 1,0 -3.8,0" />
+    <!-- 동전 -->
+    <path
+        android:fillColor="#E8A317"
+        android:pathData="M57,73.5 a13,13 0 1,0 26,0 a13,13 0 1,0 -26,0" />
+    <path
+        android:fillColor="#FFC93C"
+        android:pathData="M57,72 a13,13 0 1,0 26,0 a13,13 0 1,0 -26,0" />
+    <path
+        android:strokeColor="#F2AE1E"
+        android:strokeWidth="1.4"
+        android:pathData="M60,72 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0" />
+    <!-- ₩ -->
+    <path
+        android:strokeColor="#9A5B0C"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M63.6,66 L66.4,78 L70,69 L73.6,78 L76.4,66" />
+    <path
+        android:strokeColor="#9A5B0C"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M62.6,70.6 H77.4 M63.4,73.6 H76.6" />
+    <!-- 동전 반짝 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.7"
+        android:pathData="M61.5,66 a2.2,1.3 -40 1,0 4.4,0 a2.2,1.3 -40 1,0 -4.4,0" />
+</vector>
