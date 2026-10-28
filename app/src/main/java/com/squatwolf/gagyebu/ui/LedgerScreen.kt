@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -90,6 +91,16 @@ fun LedgerScreen(vm: LedgerViewModel) {
 
     Scaffold(
         containerColor = Paper,
+        // 연결 상태(혼자 쓰기 모드 등)는 화면 맨 아래 오른쪽에 작게
+        bottomBar = {
+            Text(
+                status,
+                color = Muted,
+                fontSize = 11.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 6.dp),
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(onClick = { adding = true }, containerColor = Ink, contentColor = Color.White) {
                 Icon(Icons.Default.Add, contentDescription = "내역 추가")
@@ -101,6 +112,7 @@ fun LedgerScreen(vm: LedgerViewModel) {
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
         ) {
             item { Column {
+                NoSpendBadge(remember(entries, vm.month) { noSpendDays(vm.month, entries) })
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { vm.moveMonth(-1) }) { Icon(Icons.Default.KeyboardArrowLeft, "이전 달") }
                     Text(
@@ -113,7 +125,7 @@ fun LedgerScreen(vm: LedgerViewModel) {
                     TextButton(onClick = { stats = true }) { Text("통계", fontSize = 16.sp, color = Ink) }
                     IconButton(onClick = { sharing = true }) { Icon(Icons.Default.Share, "공유") }
                 }
-                Text(status, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 12.dp))
+                Spacer(Modifier.height(8.dp))
             } }
             item { Summary(income, expense) }
             item { Column { Calendar(vm.month, vm.selected, byDate) { vm.selected = it } } }
