@@ -6,8 +6,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -59,8 +57,8 @@ import kotlin.math.sin
 
 // 분류별 파스텔 색. 분류가 더 많으면 돌아가며 쓴다.
 private val palette = listOf(
-    Color(0xFFFF8A80), Color(0xFFFFB74D), Color(0xFFFFD54F), Color(0xFFAED581), Color(0xFF4DD0E1),
-    Color(0xFF64B5F6), Color(0xFF9575CD), Color(0xFFF06292), Color(0xFFA1887F), Color(0xFF90A4AE),
+    Color(0xFFE35D5D), Color(0xFF9C82A8), Color(0xFF5BB8C6), Color(0xFFF0915A), Color(0xFFBDBDBD),
+    Color(0xFFEBCF4E), Color(0xFFE8709A), Color(0xFF8B7FD1), Color(0xFF6CC08B), Color(0xFF8D6E63),
 )
 private val Track = Color(0xFFEDEDED)
 
@@ -95,7 +93,7 @@ fun StatsScreen(
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "뒤로") }
                     IconButton(onClick = { onMove(-1) }) { Icon(Icons.Default.KeyboardArrowLeft, "이전 달") }
-                    Text("${month.monthValue}월 지출", Modifier.weight(1f), fontSize = 20.sp, textAlign = TextAlign.Center)
+                    Text("지출 통계", Modifier.weight(1f), fontSize = 20.sp, textAlign = TextAlign.Center)
                     IconButton(onClick = { onMove(1) }) { Icon(Icons.Default.KeyboardArrowRight, "다음 달") }
                     Spacer(Modifier.width(48.dp))
                 }
@@ -112,7 +110,9 @@ fun StatsScreen(
                 }
                 return@LazyColumn
             }
+            item { Header(month, expenses, total) }
             item { Donut(slices, total) }
+            items(slices, key = { it.category }) { s -> SliceRow(s, total) }
             item {
                 Card {
                     Text("📅 날짜별 지출", fontSize = 17.sp, fontWeight = FontWeight.Bold)
@@ -120,15 +120,6 @@ fun StatsScreen(
                     DailyBars(month, daily)
                 }
             }
-            item {
-                Text(
-                    "🏆 분류별 순위",
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 14.dp, bottom = 2.dp, start = 4.dp),
-                )
-            }
-            items(slices, key = { it.category }) { s -> SliceRow(slices.indexOf(s) + 1, s, total) }
         }
     }
 }
@@ -147,59 +138,75 @@ private fun Card(content: @Composable () -> Unit) {
 
 private fun percent(part: Long, total: Long) = (part * 100.0 / total).roundToInt()
 
-@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Header(month: YearMonth, expenses: List<Entry>, total: Long) {
+    val byMethod = expenses.groupBy { it.method.ifEmpty { "기타" } }
+        .mapValues { (_, list) -> list.sumOf { it.amount } }
+        .toList()
+        .sortedByDescending { it.second }
+    Column(Modifier.padding(horizontal = 4.dp, vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text("${month.monthValue}월 지출", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "  (${month.monthValue}.1 - ${month.monthValue}.${month.lengthOfMonth()})",
+                color = Muted,
+                fontSize = 13.sp,
+            )
+        }
+        Text("${won(total)}원", fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        byMethod.forEach { (method, sum) ->
+            Row {
+                Text(method, color = Muted, fontSize = 14.sp, modifier = Modifier.width(72.dp))
+                Text(won(sum), color = Muted, fontSize = 14.sp)
+            }
+        }
+    }
+}
+
+/** 도넛 조각 안에 %를, 조각 바깥에는 선으로 이은 동그란 그림 글자 아이콘을 둔다. */
 @Composable
 private fun Donut(slices: List<Slice>, total: Long) {
     val measurer = rememberTextMeasurer()
-    Card {
-        Text("🍩 분류별 지출", fontSize = 17.sp, fontWeight = FontWeight.Bold)
-        Box(Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) {
-            Canvas(Modifier.size(220.dp)) {
-                val stroke = 44.dp.toPx()
-                val inset = stroke / 2
-                val arcSize = Size(size.width - stroke, size.height - stroke)
-                val radius = (size.width - stroke) / 2
-                var start = -90f
-                slices.forEach { s ->
-                    val sweep = 360f * s.amount / total
-                    drawArc(
-                        color = s.color,
-                        startAngle = start,
-                        sweepAngle = sweep,
-                        useCenter = false,
-                        topLeft = Offset(inset, inset),
-                        size = arcSize,
-                        style = Stroke(width = stroke),
-                    )
-                    // 조각이 넉넉하면 조각 위에 그림 글자를 바로 얹는다.
-                    if (sweep >= 25f) {
-                        val mid = Math.toRadians((start + sweep / 2).toDouble())
-                        val label = measurer.measure(emojiOf(s.category), TextStyle(fontSize = 18.sp))
-                        val cx = center.x + radius * cos(mid).toFloat()
-                        val cy = center.y + radius * sin(mid).toFloat()
-                        drawText(label, topLeft = Offset(cx - label.size.width / 2, cy - label.size.height / 2))
-                    }
-                    start += sweep
-                }
+    val pctStyle = TextStyle(color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    val iconStyle = TextStyle(fontSize = 17.sp)
+    Canvas(Modifier.fillMaxWidth().height(340.dp)) {
+        val outer = size.height * 0.30f
+        val inner = outer * 0.42f
+        val ring = outer - inner
+        val mid = (outer + inner) / 2
+        val bubble = 21.dp.toPx()
+        var start = -90f
+        slices.forEachIndexed { i, s ->
+            val sweep = 360f * s.amount / total
+            drawArc(
+                color = s.color,
+                startAngle = start,
+                sweepAngle = sweep,
+                useCenter = false,
+                topLeft = Offset(center.x - mid, center.y - mid),
+                size = Size(mid * 2, mid * 2),
+                style = Stroke(width = ring),
+            )
+            val a = Math.toRadians((start + sweep / 2).toDouble())
+            val dx = cos(a).toFloat()
+            val dy = sin(a).toFloat()
+
+            // 조각 안 비율
+            if (sweep >= 14f) {
+                val t = measurer.measure("${percent(s.amount, total)}%", pctStyle)
+                drawText(t, topLeft = Offset(center.x + dx * mid - t.size.width / 2, center.y + dy * mid - t.size.height / 2))
             }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("총 지출", color = Muted, fontSize = 14.sp)
-                Text("${won(total)}원", color = Red, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-        // 색깔 칩: 그래프 색과 같은 바탕에 그림 글자, 분류, 비율
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            slices.forEach { s ->
-                Text(
-                    "${emojiOf(s.category)} ${s.category} ${percent(s.amount, total)}%",
-                    fontSize = 14.sp,
-                    color = Ink,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(s.color.copy(alpha = 0.35f))
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                )
-            }
+
+            // 바깥 아이콘. 작은 조각끼리 겹치지 않게 번갈아 거리를 다르게 한다.
+            val reach = outer + 38.dp.toPx() + if (sweep < 20f && i % 2 == 1) 30.dp.toPx() else 0f
+            val bx = (center.x + dx * reach).coerceIn(bubble, size.width - bubble)
+            val by = (center.y + dy * reach).coerceIn(bubble, size.height - bubble)
+            drawLine(s.color, Offset(center.x + dx * outer, center.y + dy * outer), Offset(bx, by), strokeWidth = 1.5.dp.toPx())
+            drawCircle(s.color, bubble, Offset(bx, by))
+            val icon = measurer.measure(emojiOf(s.category), iconStyle)
+            drawText(icon, topLeft = Offset(bx - icon.size.width / 2, by - icon.size.height / 2))
+
+            start += sweep
         }
     }
 }
@@ -270,24 +277,31 @@ private fun DailyBars(month: YearMonth, daily: List<Long>) {
     }
 }
 
+/** 비율 · 아이콘 · 분류 · 막대 · 금액 한 줄. */
 @Composable
-private fun SliceRow(rank: Int, s: Slice, total: Long) {
+private fun SliceRow(s: Slice, total: Long) {
     val ratio = s.amount.toFloat() / total
-    Card {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(40.dp).clip(CircleShape).background(s.color.copy(alpha = 0.35f)),
-                contentAlignment = Alignment.Center,
-            ) { Text(emojiOf(s.category), fontSize = 20.sp) }
-            Column(Modifier.padding(start = 12.dp).weight(1f)) {
-                Text("$rank. ${s.category}", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                Text("${percent(s.amount, total)}%", color = Muted, fontSize = 13.sp)
-            }
-            Text("${won(s.amount)}원", fontSize = 16.sp)
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            "${percent(s.amount, total)}%",
+            color = s.color,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.width(44.dp),
+        )
+        Box(
+            Modifier.size(38.dp).clip(CircleShape).background(s.color),
+            contentAlignment = Alignment.Center,
+        ) { Text(emojiOf(s.category), fontSize = 18.sp) }
+        Text(
+            s.category,
+            fontSize = 15.sp,
+            maxLines = 2,
+            modifier = Modifier.padding(start = 8.dp).width(56.dp),
+        )
+        Box(Modifier.weight(1f).padding(horizontal = 8.dp).height(12.dp).clip(CircleShape).background(Track)) {
+            Box(Modifier.fillMaxWidth(ratio).height(12.dp).clip(CircleShape).background(s.color))
         }
-        Spacer(Modifier.height(10.dp))
-        Box(Modifier.fillMaxWidth().height(10.dp).clip(CircleShape).background(Track)) {
-            Box(Modifier.fillMaxWidth(ratio).height(10.dp).clip(CircleShape).background(s.color))
-        }
+        Text("${won(s.amount)}원", fontSize = 17.sp, fontWeight = FontWeight.Bold)
     }
 }
