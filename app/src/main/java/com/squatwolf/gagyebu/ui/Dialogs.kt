@@ -140,7 +140,7 @@ fun ShareDialog(vm: LedgerViewModel, onDismiss: () -> Unit) {
                         OutlinedButton(onClick = {
                             val send = Intent(Intent.ACTION_SEND)
                                 .setType("text/plain")
-                                .putExtra(Intent.EXTRA_TEXT, "우리 가계부 초대코드: $code\n앱의 공유 버튼 → 코드 입력에 넣어 줘!")
+                                .putExtra(Intent.EXTRA_TEXT, "꼬빵 초대코드: $code\n앱의 공유 버튼 → 코드 입력에 넣어 줘!")
                             context.startActivity(Intent.createChooser(send, "초대코드 보내기"))
                         }) { Text("코드 보내기") }
                         HorizontalDivider()

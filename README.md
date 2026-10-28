@@ -1,4 +1,4 @@
-# 우리 가계부
+# 꼬빵
 
 두 사람이 함께 쓰는 달력형 가계부 안드로이드 앱 (Kotlin + Jetpack Compose + Firebase).
 
