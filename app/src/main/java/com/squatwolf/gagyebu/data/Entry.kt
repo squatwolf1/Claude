@@ -4,6 +4,9 @@ import java.time.YearMonth
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
+/** 이 분류로 적은 지출은 저금통에 모인다. */
+const val SAVING_CATEGORY = "저금"
+
 /** 내역 하나. date 는 "2026-10-27" 형식, amount 는 항상 양수. ruleId 는 매달 고정에서 만든 내역일 때만 있다. */
 data class Entry(
     val id: String,
@@ -59,6 +62,9 @@ interface LedgerRepo {
     /** 화면 위에 보여 줄 연결 상태. */
     val status: StateFlow<String>
     val rules: Flow<List<Rule>>
+
+    /** 지금까지 저금 분류로 넣은 돈(넣은 지출 - 꺼낸 수입). */
+    val saved: Flow<Long>
     fun entries(month: YearMonth): Flow<List<Entry>>
 
     /** id 가 비어 있으면 새로 만들고, 있으면 그 id 로 덮어쓴다. */

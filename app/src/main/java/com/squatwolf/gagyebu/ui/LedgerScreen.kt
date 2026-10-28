@@ -75,7 +75,16 @@ fun LedgerScreen(vm: LedgerViewModel) {
 
     if (stats) {
         BackHandler { stats = false }
-        StatsScreen(vm.month, entries, onMove = vm::moveMonth, onBack = { stats = false })
+        val saved by vm.saved.collectAsStateWithLifecycle()
+        StatsScreen(
+            vm.month,
+            entries,
+            saved = saved,
+            goal = vm.goal,
+            onGoal = vm::changeGoal,
+            onMove = vm::moveMonth,
+            onBack = { stats = false },
+        )
         return
     }
 
