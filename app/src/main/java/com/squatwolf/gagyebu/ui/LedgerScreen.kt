@@ -26,6 +26,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -127,8 +128,8 @@ fun LedgerScreen(vm: LedgerViewModel) {
         AddEntryDialog(
             date = vm.selected,
             onDismiss = { adding = false },
-            onSave = { inc, amount, cat, memo, method ->
-                vm.add(inc, amount, cat, memo, method)
+            onSave = { inc, amount, cat, memo, method, monthly ->
+                vm.add(inc, amount, cat, memo, method, monthly)
                 adding = false
             },
         )
@@ -162,8 +163,25 @@ fun LedgerScreen(vm: LedgerViewModel) {
         AlertDialog(
             onDismissRequest = { deleting = null },
             title = { Text("삭제할까요?") },
-            text = { Text("${e.category} ${e.memo} ${won(e.amount)}원") },
-            confirmButton = { TextButton(onClick = { vm.delete(e); deleting = null }) { Text("삭제", color = Red) } },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("${emojiOf(e.category)} ${e.category} ${e.memo} ${won(e.amount)}원")
+                    if (e.ruleId.isNotEmpty()) {
+                        Text("🔁 매달 고정 내역이에요", color = Muted, fontSize = 13.sp)
+                        OutlinedButton(onClick = { vm.delete(e); deleting = null }, modifier = Modifier.fillMaxWidth()) {
+                            Text("이번 달만 삭제")
+                        }
+                        OutlinedButton(onClick = { vm.stopMonthly(e); deleting = null }, modifier = Modifier.fillMaxWidth()) {
+                            Text("이번 달부터 고정 그만", color = Red)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                if (e.ruleId.isEmpty()) {
+                    TextButton(onClick = { vm.delete(e); deleting = null }) { Text("삭제", color = Red) }
+                }
+            },
             dismissButton = { TextButton(onClick = { deleting = null }) { Text("취소") } },
         )
     }
@@ -275,7 +293,7 @@ private fun EntryCard(e: Entry, modifier: Modifier) {
         Text("${emojiOf(e.category)} ${e.category}", fontSize = 16.sp, modifier = Modifier.weight(0.9f))
         Column(Modifier.weight(1.4f)) {
             Text(e.memo.ifEmpty { "-" }, fontSize = 15.sp, maxLines = 1)
-            Text(listOf(e.method, e.author).filter { it.isNotEmpty() }.joinToString(" · "), color = Muted, fontSize = 12.sp)
+            Text(listOf(if (e.ruleId.isNotEmpty()) "🔁 매달" else "", e.method, e.author).filter { it.isNotEmpty() }.joinToString(" · "), color = Muted, fontSize = 12.sp)
         }
         Text(
             (if (e.income) "+" else "-") + won(e.amount) + "원",

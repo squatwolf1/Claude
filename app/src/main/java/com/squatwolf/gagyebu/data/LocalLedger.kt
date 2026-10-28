@@ -14,12 +14,32 @@ import org.json.JSONObject
 class LocalLedger(private val prefs: SharedPreferences) : LedgerRepo {
     override val status: StateFlow<String> = MutableStateFlow("혼자 쓰기 모드 (공유하려면 Firebase 설정 필요)")
     private val all = MutableStateFlow(load())
+    private val ruleList = MutableStateFlow(loadRules())
+    override val rules: Flow<List<Rule>> = ruleList
 
     override fun entries(month: YearMonth): Flow<List<Entry>> =
         all.map { list -> list.filter { it.date.startsWith(month.toString()) } }
 
     override fun add(entry: Entry) {
-        all.value = all.value + entry.copy(id = UUID.randomUUID().toString())
+        val e = if (entry.id.isEmpty()) entry.copy(id = UUID.randomUUID().toString()) else entry
+        all.value = all.value.filterNot { it.id == e.id } + e
+        save()
+    }
+
+    override fun addRule(rule: Rule) {
+        ruleList.value = ruleList.value + rule
+        saveRules()
+    }
+
+    override fun skip(ruleId: String, month: String) {
+        ruleList.value = ruleList.value.map { if (it.id == ruleId) it.copy(skips = it.skips + month) else it }
+        saveRules()
+    }
+
+    override fun stop(ruleId: String, month: String) {
+        ruleList.value = ruleList.value.map { if (it.id == ruleId) it.copy(end = month) else it }
+        saveRules()
+        all.value = all.value.filterNot { it.ruleId == ruleId && it.date >= month }
         save()
     }
 
@@ -41,6 +61,7 @@ class LocalLedger(private val prefs: SharedPreferences) : LedgerRepo {
                 memo = o.optString("memo"),
                 method = o.optString("method"),
                 author = o.optString("author"),
+                ruleId = o.optString("ruleId"),
             )
         }
     }
@@ -52,13 +73,49 @@ class LocalLedger(private val prefs: SharedPreferences) : LedgerRepo {
                 JSONObject()
                     .put("id", e.id).put("date", e.date).put("income", e.income)
                     .put("amount", e.amount).put("category", e.category).put("memo", e.memo)
-                    .put("method", e.method).put("author", e.author)
+                    .put("method", e.method).put("author", e.author).put("ruleId", e.ruleId)
             )
         }
         prefs.edit().putString(KEY, arr.toString()).apply()
     }
 
+    private fun loadRules(): List<Rule> {
+        val arr = JSONArray(prefs.getString(RULES, "[]"))
+        return (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            val skips = o.optJSONArray("skips") ?: JSONArray()
+            Rule(
+                id = o.getString("id"),
+                day = o.getInt("day"),
+                income = o.getBoolean("income"),
+                amount = o.getLong("amount"),
+                category = o.optString("category"),
+                memo = o.optString("memo"),
+                method = o.optString("method"),
+                author = o.optString("author"),
+                start = o.getString("start"),
+                end = o.optString("end"),
+                skips = (0 until skips.length()).map { skips.getString(it) },
+            )
+        }
+    }
+
+    private fun saveRules() {
+        val arr = JSONArray()
+        ruleList.value.forEach { r ->
+            arr.put(
+                JSONObject()
+                    .put("id", r.id).put("day", r.day).put("income", r.income).put("amount", r.amount)
+                    .put("category", r.category).put("memo", r.memo).put("method", r.method)
+                    .put("author", r.author).put("start", r.start).put("end", r.end)
+                    .put("skips", JSONArray(r.skips))
+            )
+        }
+        prefs.edit().putString(RULES, arr.toString()).apply()
+    }
+
     private companion object {
         const val KEY = "local_entries"
+        const val RULES = "local_rules"
     }
 }

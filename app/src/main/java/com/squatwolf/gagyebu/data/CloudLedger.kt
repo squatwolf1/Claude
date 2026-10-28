@@ -96,10 +96,29 @@ class CloudLedger(private val prefs: SharedPreferences) : LedgerRepo {
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override val rules: Flow<List<Rule>> = code.flatMapLatest { c ->
+        if (c == null) {
+            flowOf(emptyList())
+        } else {
+            callbackFlow {
+                val reg = rulesOf(c).addSnapshotListener { snap, err ->
+                    if (err != null) {
+                        status.value = "읽기 실패: ${err.message}"
+                        return@addSnapshotListener
+                    }
+                    trySend(snap?.documents?.mapNotNull { it.toRule() } ?: emptyList())
+                }
+                awaitClose { reg.remove() }
+            }
+        }
+    }
+
     // 쓰기는 기다리지 않는다. 오프라인이어도 화면에 바로 보이고 연결되면 올라간다.
     override fun add(entry: Entry) {
         val c = code.value ?: return
-        entriesOf(c).document().set(
+        val doc = if (entry.id.isEmpty()) entriesOf(c).document() else entriesOf(c).document(entry.id)
+        doc.set(
             mapOf(
                 "date" to entry.date,
                 "income" to entry.income,
@@ -108,6 +127,7 @@ class CloudLedger(private val prefs: SharedPreferences) : LedgerRepo {
                 "memo" to entry.memo,
                 "method" to entry.method,
                 "author" to entry.author,
+                "ruleId" to entry.ruleId,
                 "uid" to uid,
                 "createdAt" to FieldValue.serverTimestamp(),
             )
@@ -121,6 +141,55 @@ class CloudLedger(private val prefs: SharedPreferences) : LedgerRepo {
 
     private fun entriesOf(c: String) = db.collection(LEDGERS).document(c).collection("entries")
 
+    private fun rulesOf(c: String) = db.collection(LEDGERS).document(c).collection("rules")
+
+    override fun addRule(rule: Rule) {
+        val c = code.value ?: return
+        rulesOf(c).document(rule.id).set(
+            mapOf(
+                "day" to rule.day,
+                "income" to rule.income,
+                "amount" to rule.amount,
+                "category" to rule.category,
+                "memo" to rule.memo,
+                "method" to rule.method,
+                "author" to rule.author,
+                "start" to rule.start,
+                "end" to rule.end,
+                "skips" to rule.skips,
+            )
+        )
+    }
+
+    override fun skip(ruleId: String, month: String) {
+        val c = code.value ?: return
+        rulesOf(c).document(ruleId).update("skips", FieldValue.arrayUnion(month))
+    }
+
+    override fun stop(ruleId: String, month: String) {
+        val c = code.value ?: return
+        rulesOf(c).document(ruleId).update("end", month)
+        entriesOf(c).whereEqualTo("ruleId", ruleId).get().addOnSuccessListener { snap ->
+            snap.documents.filter { (it.getString("date") ?: "") >= month }.forEach { it.reference.delete() }
+        }
+    }
+
+    private fun DocumentSnapshot.toRule(): Rule? {
+        return Rule(
+            id = id,
+            day = getLong("day")?.toInt() ?: return null,
+            income = getBoolean("income") ?: false,
+            amount = getLong("amount") ?: 0,
+            category = getString("category").orEmpty(),
+            memo = getString("memo").orEmpty(),
+            method = getString("method").orEmpty(),
+            author = getString("author").orEmpty(),
+            start = getString("start") ?: return null,
+            end = getString("end").orEmpty(),
+            skips = (get("skips") as? List<*>).orEmpty().map { it.toString() },
+        )
+    }
+
     private fun DocumentSnapshot.toEntry(): Entry? {
         return Entry(
             id = id,
@@ -131,6 +200,7 @@ class CloudLedger(private val prefs: SharedPreferences) : LedgerRepo {
             memo = getString("memo").orEmpty(),
             method = getString("method").orEmpty(),
             author = getString("author").orEmpty(),
+            ruleId = getString("ruleId").orEmpty(),
         )
     }
 

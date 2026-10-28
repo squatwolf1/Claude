@@ -13,12 +13,15 @@ import com.squatwolf.gagyebu.data.CloudLedger
 import com.squatwolf.gagyebu.data.Entry
 import com.squatwolf.gagyebu.data.LedgerRepo
 import com.squatwolf.gagyebu.data.LocalLedger
+import com.squatwolf.gagyebu.data.Rule
 import com.squatwolf.gagyebu.data.Updater
 import java.time.LocalDate
 import java.time.YearMonth
+import java.util.UUID
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -53,8 +56,22 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
     var downloading by mutableStateOf<Float?>(null)
         private set
 
+    /** 이번에 지운 고정 내역. 건너뛰기 표시가 늦게 와도 다시 만들지 않게 기억해 둔다. */
+    private val removed = mutableSetOf<String>()
+
     init {
         cloud?.let { viewModelScope.launch { it.start() } }
+        // 보고 있는 달에 매달 고정 내역이 빠져 있으면 채운다.
+        viewModelScope.launch {
+            combine(snapshotFlow { month }, repo.rules, entries) { m, rules, list -> Triple(m, rules, list) }
+                .collect { (m, rules, list) ->
+                    val have = list.map { it.id }.toSet()
+                    rules.filter { it.activeIn(m) }
+                        .map { it.entryFor(m) }
+                        .filter { it.id !in have && it.id !in removed }
+                        .forEach { repo.add(it) }
+                }
+        }
         viewModelScope.launch { update = Updater.check(app) }
     }
 
@@ -89,9 +106,40 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putString("name", name).apply()
     }
 
-    fun add(income: Boolean, amount: Long, category: String, memo: String, method: String) {
-        repo.add(Entry("", selected.toString(), income, amount, category, memo, method, name))
+    fun add(income: Boolean, amount: Long, category: String, memo: String, method: String, monthly: Boolean) {
+        if (monthly) {
+            // 이번 달 내역은 위의 채우기가 만든다.
+            repo.addRule(
+                Rule(
+                    id = UUID.randomUUID().toString().take(12),
+                    day = selected.dayOfMonth,
+                    income = income,
+                    amount = amount,
+                    category = category,
+                    memo = memo,
+                    method = method,
+                    author = name,
+                    start = YearMonth.from(selected).toString(),
+                )
+            )
+        } else {
+            repo.add(Entry("", selected.toString(), income, amount, category, memo, method, name))
+        }
     }
 
-    fun delete(entry: Entry) = repo.delete(entry.id)
+    /** 내역 하나를 지운다. 고정 내역이면 그 달만 건너뛴다. */
+    fun delete(entry: Entry) {
+        if (entry.ruleId.isNotEmpty()) {
+            removed += entry.id
+            repo.skip(entry.ruleId, entry.date.take(7))
+        }
+        repo.delete(entry.id)
+    }
+
+    /** 고정 내역을 이 달부터 그만둔다. */
+    fun stopMonthly(entry: Entry) {
+        removed += entry.id
+        repo.stop(entry.ruleId, entry.date.take(7))
+        repo.delete(entry.id)
+    }
 }

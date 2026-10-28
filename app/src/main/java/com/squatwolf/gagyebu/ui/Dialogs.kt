@@ -1,6 +1,7 @@
 package com.squatwolf.gagyebu.ui
 
 import android.content.Intent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -11,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
@@ -23,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -34,7 +37,7 @@ import com.squatwolf.gagyebu.LedgerViewModel
 import java.time.LocalDate
 import kotlinx.coroutines.launch
 
-private val expenseCategories = listOf("식비", "카페", "교통", "쇼핑", "생활", "공과금", "의료", "문화", "기타")
+private val expenseCategories = listOf("식비", "교통", "쇼핑", "생활", "공과금", "대출", "의료", "문화", "기타")
 private val incomeCategories = listOf("월급", "용돈", "부수입", "기타")
 private val methods = listOf("카드", "현금", "계좌이체")
 
@@ -43,13 +46,14 @@ private val methods = listOf("카드", "현금", "계좌이체")
 fun AddEntryDialog(
     date: LocalDate,
     onDismiss: () -> Unit,
-    onSave: (income: Boolean, amount: Long, category: String, memo: String, method: String) -> Unit,
+    onSave: (income: Boolean, amount: Long, category: String, memo: String, method: String, monthly: Boolean) -> Unit,
 ) {
     var income by remember { mutableStateOf(false) }
     var amount by remember { mutableStateOf("") }
     var category by remember { mutableStateOf(expenseCategories[0]) }
     var memo by remember { mutableStateOf("") }
     var method by remember { mutableStateOf(methods[0]) }
+    var monthly by remember { mutableStateOf(false) }
     val value = amount.toLongOrNull() ?: 0
 
     AlertDialog(
@@ -92,10 +96,20 @@ fun AddEntryDialog(
                         FilterChip(selected = method == it, onClick = { method = it }, label = { Text(it) })
                     }
                 }
+                Row(
+                    Modifier.fillMaxWidth().clickable { monthly = !monthly },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(checked = monthly, onCheckedChange = { monthly = it })
+                    Column {
+                        Text("🔁 매달 고정", fontWeight = FontWeight.Bold)
+                        Text("매월 ${date.dayOfMonth}일에 자동으로 들어가요", fontSize = 12.sp, color = Muted)
+                    }
+                }
             }
         },
         confirmButton = {
-            TextButton(enabled = value > 0, onClick = { onSave(income, value, category, memo.trim(), method) }) {
+            TextButton(enabled = value > 0, onClick = { onSave(income, value, category, memo.trim(), method, monthly) }) {
                 Text("저장")
             }
         },
