@@ -41,6 +41,17 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
 
     val status: StateFlow<String> = repo.status
 
+    val saved: StateFlow<Long> = repo.saved.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
+
+    /** 저금 목표. 이 폰에만 저장한다. */
+    var goal by mutableStateOf(prefs.getLong("goal", 1_000_000L))
+        private set
+
+    fun changeGoal(value: Long) {
+        goal = value
+        prefs.edit().putLong("goal", value).apply()
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val entries: StateFlow<List<Entry>> = snapshotFlow { month }
         .flatMapLatest { repo.entries(it) }

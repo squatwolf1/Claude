@@ -114,6 +114,24 @@ class CloudLedger(private val prefs: SharedPreferences) : LedgerRepo {
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override val saved: Flow<Long> = code.flatMapLatest { c ->
+        if (c == null) {
+            flowOf(0L)
+        } else {
+            callbackFlow {
+                val reg = entriesOf(c).whereEqualTo("category", SAVING_CATEGORY).addSnapshotListener { snap, _ ->
+                    val sum = snap?.documents.orEmpty().sumOf { d ->
+                        val amount = d.getLong("amount") ?: 0
+                        if (d.getBoolean("income") == true) -amount else amount
+                    }
+                    trySend(sum)
+                }
+                awaitClose { reg.remove() }
+            }
+        }
+    }
+
     // 쓰기는 기다리지 않는다. 오프라인이어도 화면에 바로 보이고 연결되면 올라간다.
     override fun add(entry: Entry) {
         val c = code.value ?: return

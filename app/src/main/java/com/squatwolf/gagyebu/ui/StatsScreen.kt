@@ -50,6 +50,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.squatwolf.gagyebu.data.Entry
+import com.squatwolf.gagyebu.data.SAVING_CATEGORY
 import java.time.YearMonth
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -68,10 +69,14 @@ private data class Slice(val category: String, val amount: Long, val color: Colo
 fun StatsScreen(
     month: YearMonth,
     entries: List<Entry>,
+    saved: Long,
+    goal: Long,
+    onGoal: (Long) -> Unit,
     onMove: (Long) -> Unit,
     onBack: () -> Unit,
 ) {
-    val expenses = entries.filter { !it.income }
+    // 저금은 쓴 돈이 아니라 모은 돈이라 지출 통계에서 뺀다.
+    val expenses = entries.filter { !it.income && it.category != SAVING_CATEGORY }
     val total = expenses.sumOf { it.amount }
     val slices = remember(expenses) {
         expenses.groupBy { it.category }
@@ -98,6 +103,7 @@ fun StatsScreen(
                     Spacer(Modifier.width(48.dp))
                 }
             }
+            item { PiggyCard(saved, goal, onGoal) }
             if (total == 0L) {
                 item {
                     Text(
