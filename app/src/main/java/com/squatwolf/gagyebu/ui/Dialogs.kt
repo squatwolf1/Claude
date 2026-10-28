@@ -73,7 +73,7 @@ fun AddEntryDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Text("분류", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text("분류", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     (if (income) incomeCategories else expenseCategories).forEach {
                         FilterChip(selected = category == it, onClick = { category = it }, label = { Text(it) })
@@ -86,7 +86,7 @@ fun AddEntryDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Text("결제수단", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text("결제수단", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     methods.forEach {
                         FilterChip(selected = method == it, onClick = { method = it }, label = { Text(it) })
@@ -131,11 +131,11 @@ fun ShareDialog(vm: LedgerViewModel, onDismiss: () -> Unit) {
                     cloud == null -> Text(
                         "아직 Firebase가 연결되지 않아 이 폰에만 저장돼요.\n" +
                             "저장소의 app 폴더에 google-services.json 을 올리면 다음 빌드부터 공유가 켜져요.",
-                        fontSize = 16.sp,
+                        fontSize = 14.sp,
                     )
-                    code == null -> Text("연결 중이에요. 인터넷을 확인해 주세요.", fontSize = 16.sp)
+                    code == null -> Text("연결 중이에요. 인터넷을 확인해 주세요.", fontSize = 14.sp)
                     else -> {
-                        Text("내 초대코드", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text("내 초대코드", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         Text(code, fontSize = 26.sp, fontWeight = FontWeight.Bold)
                         OutlinedButton(onClick = {
                             val send = Intent(Intent.ACTION_SEND)
@@ -144,8 +144,8 @@ fun ShareDialog(vm: LedgerViewModel, onDismiss: () -> Unit) {
                             context.startActivity(Intent.createChooser(send, "초대코드 보내기"))
                         }) { Text("코드 보내기") }
                         HorizontalDivider()
-                        Text("상대 가계부에 들어가기", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        Text("상대가 보낸 코드를 넣으면 같은 가계부를 함께 써요. (지금 내 가계부 내역은 이 폰에서 안 보이게 돼요)", fontSize = 14.sp)
+                        Text("상대 가계부에 들어가기", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("상대가 보낸 코드를 넣으면 같은 가계부를 함께 써요. (지금 내 가계부 내역은 이 폰에서 안 보이게 돼요)", fontSize = 12.sp)
                         OutlinedTextField(
                             value = input,
                             onValueChange = { input = it.uppercase().take(8) },
@@ -161,7 +161,7 @@ fun ShareDialog(vm: LedgerViewModel, onDismiss: () -> Unit) {
                                 busy = false
                             }
                         }) { Text(if (busy) "참여 중…" else "참여하기") }
-                        message?.let { Text(it, fontSize = 15.sp) }
+                        message?.let { Text(it, fontSize = 13.sp) }
                     }
                 }
             }
