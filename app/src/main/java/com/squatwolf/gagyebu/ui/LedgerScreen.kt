@@ -26,6 +26,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -133,6 +134,30 @@ fun LedgerScreen(vm: LedgerViewModel) {
         )
     }
     if (sharing) ShareDialog(vm, onDismiss = { sharing = false })
+    vm.update?.let { release ->
+        val progress = vm.downloading
+        AlertDialog(
+            onDismissRequest = { if (progress == null) vm.skipUpdate() },
+            title = { Text("새 버전이 나왔어요 🎉") },
+            text = {
+                Column {
+                    Text("빌드 ${vm.build} → 빌드 ${release.build}")
+                    if (progress != null) {
+                        Spacer(Modifier.height(12.dp))
+                        LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = progress == null, onClick = { vm.installUpdate() }) {
+                    Text(if (progress == null) "업데이트" else "받는 중…")
+                }
+            },
+            dismissButton = {
+                TextButton(enabled = progress == null, onClick = { vm.skipUpdate() }) { Text("나중에") }
+            },
+        )
+    }
     deleting?.let { e ->
         AlertDialog(
             onDismissRequest = { deleting = null },
@@ -247,7 +272,7 @@ private fun EntryCard(e: Entry, modifier: Modifier) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(e.category, fontSize = 16.sp, modifier = Modifier.weight(0.8f))
+        Text("${emojiOf(e.category)} ${e.category}", fontSize = 16.sp, modifier = Modifier.weight(0.9f))
         Column(Modifier.weight(1.4f)) {
             Text(e.memo.ifEmpty { "-" }, fontSize = 15.sp, maxLines = 1)
             Text(listOf(e.method, e.author).filter { it.isNotEmpty() }.joinToString(" · "), color = Muted, fontSize = 12.sp)
