@@ -1,5 +1,6 @@
 package com.squatwolf.gagyebu.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -63,11 +64,18 @@ fun LedgerScreen(vm: LedgerViewModel) {
     var adding by remember { mutableStateOf(false) }
     var sharing by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<Entry?>(null) }
+    var stats by remember { mutableStateOf(false) }
 
     val byDate = remember(entries) { entries.groupBy { it.date } }
     val income = entries.filter { it.income }.sumOf { it.amount }
     val expense = entries.filter { !it.income }.sumOf { it.amount }
     val dayEntries = byDate[vm.selected.toString()].orEmpty()
+
+    if (stats) {
+        BackHandler { stats = false }
+        StatsScreen(vm.month, entries, onMove = vm::moveMonth, onBack = { stats = false })
+        return
+    }
 
     Scaffold(
         containerColor = Paper,
@@ -87,13 +95,14 @@ fun LedgerScreen(vm: LedgerViewModel) {
                     Text(
                         monthTitle(vm.month),
                         Modifier.weight(1f),
-                        fontSize = 22.sp,
+                        fontSize = 26.sp,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     )
                     IconButton(onClick = { vm.moveMonth(1) }) { Icon(Icons.Default.KeyboardArrowRight, "다음 달") }
+                    TextButton(onClick = { stats = true }) { Text("통계", fontSize = 18.sp, color = Ink) }
                     IconButton(onClick = { sharing = true }) { Icon(Icons.Default.Share, "공유") }
                 }
-                Text(status, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 12.dp))
+                Text(status, color = Muted, fontSize = 14.sp, modifier = Modifier.padding(bottom = 12.dp))
             } }
             item { Summary(income, expense) }
             item { Column { Calendar(vm.month, vm.selected, byDate) { vm.selected = it } } }
@@ -102,7 +111,7 @@ fun LedgerScreen(vm: LedgerViewModel) {
                     Text(
                         "${vm.selected.monthValue}월 ${vm.selected.dayOfMonth}일 내역이 없어요. + 를 눌러 추가하세요.",
                         color = Muted,
-                        fontSize = 14.sp,
+                        fontSize = 16.sp,
                         modifier = Modifier.padding(vertical = 24.dp),
                     )
                 }
@@ -144,21 +153,21 @@ private fun Summary(income: Long, expense: Long) {
     Row(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
         Column(Modifier.weight(1f)) {
             Row {
-                Text("수입 ", fontSize = 16.sp)
-                Text("+${won(income)}원", color = Blue, fontSize = 16.sp)
+                Text("수입 ", fontSize = 18.sp)
+                Text("+${won(income)}원", color = Blue, fontSize = 18.sp)
             }
             Spacer(Modifier.height(6.dp))
             Row {
-                Text("지출 ", fontSize = 16.sp)
-                Text("-${won(expense)}원", color = Red, fontSize = 16.sp)
+                Text("지출 ", fontSize = 18.sp)
+                Text("-${won(expense)}원", color = Red, fontSize = 18.sp)
             }
         }
         Row {
-            Text("합계 ", fontSize = 16.sp)
+            Text("합계 ", fontSize = 18.sp)
             Text(
                 (if (total >= 0) "+" else "-") + won(kotlin.math.abs(total)) + "원",
                 color = if (total >= 0) Blue else Red,
-                fontSize = 16.sp,
+                fontSize = 18.sp,
             )
         }
     }
@@ -199,12 +208,12 @@ private fun Calendar(month: YearMonth, selected: LocalDate, byDate: Map<String, 
                 ) {
                     Text(
                         "${day.dayOfMonth}",
-                        fontSize = 16.sp,
+                        fontSize = 18.sp,
                         fontWeight = if (day == today) FontWeight.Bold else FontWeight.Normal,
                         color = Ink,
                     )
-                    if (inc > 0) Text("+${won(inc)}", color = Blue, fontSize = 10.sp, maxLines = 1)
-                    if (exp > 0) Text("-${won(exp)}", color = Red, fontSize = 10.sp, maxLines = 1)
+                    if (inc > 0) Text("+${won(inc)}", color = Blue, fontSize = 12.sp, maxLines = 1)
+                    if (exp > 0) Text("-${won(exp)}", color = Red, fontSize = 12.sp, maxLines = 1)
                 }
             }
         }
@@ -224,15 +233,15 @@ private fun EntryCard(e: Entry, modifier: Modifier) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(e.category, fontSize = 16.sp, modifier = Modifier.weight(0.8f))
+        Text(e.category, fontSize = 18.sp, modifier = Modifier.weight(0.8f))
         Column(Modifier.weight(1.4f)) {
-            Text(e.memo.ifEmpty { "-" }, fontSize = 15.sp, maxLines = 1)
-            Text(listOf(e.method, e.author).filter { it.isNotEmpty() }.joinToString(" · "), color = Muted, fontSize = 12.sp)
+            Text(e.memo.ifEmpty { "-" }, fontSize = 17.sp, maxLines = 1)
+            Text(listOf(e.method, e.author).filter { it.isNotEmpty() }.joinToString(" · "), color = Muted, fontSize = 14.sp)
         }
         Text(
             (if (e.income) "+" else "-") + won(e.amount) + "원",
             color = if (e.income) Blue else Red,
-            fontSize = 17.sp,
+            fontSize = 19.sp,
         )
     }
 }
