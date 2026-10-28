@@ -76,7 +76,7 @@ fun AddEntryDialog(
                 Text("분류", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     (if (income) incomeCategories else expenseCategories).forEach {
-                        FilterChip(selected = category == it, onClick = { category = it }, label = { Text(it) })
+                        FilterChip(selected = category == it, onClick = { category = it }, label = { Text("${emojiOf(it)} $it") })
                     }
                 }
                 OutlinedTextField(
@@ -126,6 +126,7 @@ fun ShareDialog(vm: LedgerViewModel, onDismiss: () -> Unit) {
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                Text("앱 버전: 빌드 ${vm.build}", color = Muted, fontSize = 12.sp)
                 HorizontalDivider()
                 when {
                     cloud == null -> Text(
