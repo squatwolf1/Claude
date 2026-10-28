@@ -103,7 +103,6 @@ fun StatsScreen(
                     Spacer(Modifier.width(48.dp))
                 }
             }
-            item { PiggyCard(saved, goal, onGoal) }
             if (total == 0L) {
                 item {
                     Text(
@@ -114,18 +113,20 @@ fun StatsScreen(
                         textAlign = TextAlign.Center,
                     )
                 }
-                return@LazyColumn
-            }
-            item { Header(month, expenses, total) }
-            item { Donut(slices, total) }
-            items(slices, key = { it.category }) { s -> SliceRow(s, total) }
-            item {
-                Card {
-                    Text("📅 날짜별 지출", fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(8.dp))
-                    DailyBars(month, daily)
+            } else {
+                item { Header(month, expenses, total) }
+                item { Donut(slices, total) }
+                items(slices, key = { it.category }) { s -> SliceRow(s, total) }
+                item {
+                    Card {
+                        Text("📅 날짜별 지출", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        DailyBars(month, daily)
+                    }
                 }
             }
+            // 저금통은 그래프 아래
+            item { PiggyCard(saved, goal, onGoal) }
         }
     }
 }
