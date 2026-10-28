@@ -13,7 +13,8 @@ service cloud.firestore {
         && request.resource.data.members.hasAll(resource.data.members)
         && request.resource.data.members.toSet().difference(resource.data.members.toSet()) == [request.auth.uid].toSet();
 
-      match /entries/{id} {
+      // entries(내역), rules(매달 고정)
+      match /{sub}/{id} {
         allow read, write: if request.auth != null
           && request.auth.uid in get(/databases/$(db)/documents/ledgers/$(code)).data.members;
       }
