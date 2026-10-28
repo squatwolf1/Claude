@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    // 가계부 문서 ID = 초대코드. 코드를 아는 사람만 찾아 들어올 수 있다.
+    match /ledgers/{code} {
+      allow get: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.members == [request.auth.uid];
+      // 들어오는 사람은 members 에 자기 자신만 추가할 수 있고, 최대 2명.
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+        && request.resource.data.members.size() <= 2
+        && request.resource.data.members.hasAll(resource.data.members)
+        && request.resource.data.members.toSet().difference(resource.data.members.toSet()) == [request.auth.uid].toSet();
+
+      match /entries/{id} {
+        allow read, write: if request.auth != null
+          && request.auth.uid in get(/databases/$(db)/documents/ledgers/$(code)).data.members;
+      }
+    }
+  }
+}
