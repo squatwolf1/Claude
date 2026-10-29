@@ -353,21 +353,24 @@ private fun DayAmount(text: String, color: Color) {
     )
 }
 
-/** 고정비는 연한 빨강 글씨에 가는 밑줄로 일반 지출과 구분한다. */
+/** 고정비는 연한 빨강 상자에 흰 글씨로, 위아래 여백 없이 얇게 표시한다. */
 @Composable
 private fun FixedAmount(amount: Long) {
     val text = "-${won(amount)}"
-    Column(Modifier.padding(top = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text,
-            color = Fixed,
-            fontSize = if (text.length > 8) 9.sp else 11.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            softWrap = false,
-        )
-        Box(Modifier.width(18.dp).height(1.5.dp).clip(RoundedCornerShape(1.dp)).background(Fixed))
-    }
+    Text(
+        text,
+        color = Color.White,
+        fontSize = if (text.length > 8) 9.sp else 10.sp,
+        fontWeight = FontWeight.Bold,
+        lineHeight = 11.sp,
+        maxLines = 1,
+        softWrap = false,
+        modifier = Modifier
+            .padding(top = 2.dp)
+            .clip(RoundedCornerShape(3.dp))
+            .background(Fixed)
+            .padding(horizontal = 3.dp),
+    )
 }
 
 @Composable
