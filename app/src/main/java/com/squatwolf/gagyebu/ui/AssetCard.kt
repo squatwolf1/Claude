@@ -66,7 +66,7 @@ fun AssetCard(assets: Assets, onStartAsset: (Long) -> Unit) {
             color = if (assets.pending < 0) Red else Blue,
             fontSize = 13.sp,
         )
-        Text("저금은 지출이 아니라 자산을 옮긴 것이라 총자산에서 빠지지 않아요", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+        Text("저금(사용가능)은 총자산에 남고, 저금(사용불가)는 총자산에서 빠져요", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
 
         HorizontalDivider(Modifier.padding(vertical = 10.dp))
         Row(Modifier.fillMaxWidth().clickable { editingStart = true }, verticalAlignment = Alignment.CenterVertically) {
