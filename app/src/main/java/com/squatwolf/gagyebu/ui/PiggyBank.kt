@@ -78,7 +78,7 @@ private fun SavingListDialog(title: String, entries: List<Entry>, onDismiss: () 
                 Text("아직 들어간 내역이 없어요.", color = Muted, fontSize = 15.sp)
             } else {
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                    // 총자산을 직접 고친 만큼은 유동 저금에 한 줄로 보여 준다.
+                    // 총자산을 직접 고친 만큼은 저금(사용가능)에 한 줄로 보여 준다.
                     if (base != 0L) {
                         item {
                             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -146,7 +146,7 @@ private fun moodOf(ratio: Float) = when {
  */
 @Composable
 fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit, assetBase: Long, onAssetBase: (Long) -> Unit) {
-    // 총자산 = 부동 + 유동. 직접 고친 금액(assetBase)은 유동에 더한다.
+    // 총자산 = 사용불가 + 사용가능. 직접 고친 금액(assetBase)은 사용가능에 더한다.
     val liquid = savings.liquid + assetBase
     val saved = savings.fixed + liquid
     var editingAsset by remember { mutableStateOf(false) }
@@ -154,7 +154,7 @@ fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit, assetBase: L
     val fill by animateFloatAsState(ratio.coerceIn(0f, 1.2f), tween(900), label = "piggy")
     val mood = moodOf(ratio)
     var editing by remember { mutableStateOf(false) }
-    var showing by remember { mutableStateOf<Boolean?>(null) } // true 부동, false 유동
+    var showing by remember { mutableStateOf<Boolean?>(null) } // true 사용불가, false 사용가능
 
     Column(
         Modifier
@@ -238,10 +238,10 @@ fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit, assetBase: L
             modifier = Modifier.align(Alignment.CenterHorizontally),
         )
         Spacer(Modifier.height(12.dp))
-        // 부동 · 유동 나눠 보기
+        // 사용불가 · 사용가능 나눠 보기
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SavingCell("🔒 부동 저금", savings.fixed, FixedGold, Modifier.weight(1f)) { showing = true }
-            SavingCell("💧 유동 저금", liquid, LiquidBlue, Modifier.weight(1f)) { showing = false }
+            SavingCell("🔒 저금(사용불가)", savings.fixed, FixedGold, Modifier.weight(1f)) { showing = true }
+            SavingCell("💧 저금(사용가능)", liquid, LiquidBlue, Modifier.weight(1f)) { showing = false }
         }
         if (saved > 0) {
             val fixedShare = (savings.fixed.coerceAtLeast(0).toFloat() / saved).coerceIn(0f, 1f)
@@ -258,12 +258,12 @@ fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit, assetBase: L
             Text("목표 ${won(goal)}원", color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
             Text("${(ratio * 100).roundToInt()}%", color = PigDark, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
-        Text("지출에서 🔒 부동저금 · 💧 유동저금 분류로 넣으면 여기에 모여요", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+        Text("지출에서 🔒 저금(사용불가) · 💧 저금(사용가능) 분류로 넣으면 여기에 모여요", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
     }
 
     showing?.let { fixed ->
         SavingListDialog(
-            title = if (fixed) "🔒 부동 저금 내역" else "💧 유동 저금 내역",
+            title = if (fixed) "🔒 저금(사용불가) 내역" else "💧 저금(사용가능) 내역",
             entries = if (fixed) savings.fixedEntries else savings.liquidEntries,
             onDismiss = { showing = null },
             base = if (fixed) 0 else assetBase,
@@ -285,7 +285,7 @@ fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit, assetBase: L
                         visualTransformation = ThousandsTransformation,
                         singleLine = true,
                     )
-                    Text("부동 저금은 그대로 두고, 차이만큼 💧 유동 저금에 더하거나 빼요.", color = Muted, fontSize = 12.sp)
+                    Text("저금(사용불가)은 그대로 두고, 차이만큼 💧 저금(사용가능)에 더하거나 빼요.", color = Muted, fontSize = 12.sp)
                 }
             },
             confirmButton = {
