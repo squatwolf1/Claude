@@ -11,6 +11,7 @@ fun emojiOf(category: String) = when (category) {
     "생활" -> "🏠"
     "공과금" -> "🧾"
     "대출" -> "🏦"
+    "보험" -> "🛡️"
     "유류" -> "⛽"
     "병원" -> "🏥"
     "저금" -> "🐷"
@@ -23,6 +24,6 @@ fun emojiOf(category: String) = when (category) {
 }
 
 /** 고정비로 보는 분류. 매달 고정 내역도 고정비다. */
-val fixedCategories = setOf("공과금", "대출")
+val fixedCategories = setOf("공과금", "대출", "보험")
 
 fun Entry.isFixedCost() = !income && (ruleId.isNotEmpty() || category in fixedCategories)
