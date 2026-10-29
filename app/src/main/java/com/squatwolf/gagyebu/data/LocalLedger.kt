@@ -27,6 +27,10 @@ class LocalLedger(private val prefs: SharedPreferences) : LedgerRepo {
         save()
     }
 
+    override fun ensure(entry: Entry) {
+        if (all.value.none { it.id == entry.id }) add(entry)
+    }
+
     override fun addRule(rule: Rule) {
         ruleList.value = ruleList.value + rule
         saveRules()

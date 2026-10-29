@@ -99,7 +99,8 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
                     rules.filter { it.activeIn(m) }
                         .map { it.entryFor(m) }
                         .filter { it.id !in have && it.id !in removed }
-                        .forEach { repo.add(it) }
+                        // add 가 아니라 ensure: 시작 직후 목록이 아직 비어 있어도 고친 내역을 덮어쓰지 않는다.
+                        .forEach { repo.ensure(it) }
                 }
         }
         viewModelScope.launch { update = Updater.check(app) }
