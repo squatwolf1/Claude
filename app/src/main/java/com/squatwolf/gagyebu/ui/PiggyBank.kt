@@ -69,32 +69,15 @@ private val LiquidBlue = Color(0xFF5BB8C6)
 
 /** 저금 칸을 누르면 그 칸에 들어간 내역을 보여 준다. */
 @Composable
-private fun SavingListDialog(title: String, entries: List<Entry>, onDismiss: () -> Unit, base: Long = 0) {
+private fun SavingListDialog(title: String, entries: List<Entry>, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            if (entries.isEmpty() && base == 0L) {
+            if (entries.isEmpty()) {
                 Text("아직 들어간 내역이 없어요.", color = Muted, fontSize = 15.sp)
             } else {
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                    // 총자산을 직접 고친 만큼은 저금(사용가능)에 한 줄로 보여 준다.
-                    if (base != 0L) {
-                        item {
-                            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    Text("✏️ 직접 입력한 자산", fontSize = 15.sp)
-                                    Text("총자산 수정으로 맞춘 금액", color = Muted, fontSize = 12.sp)
-                                }
-                                Text(
-                                    (if (base < 0) "-" else "+") + won(kotlin.math.abs(base)) + "원",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (base < 0) Red else PigDark,
-                                )
-                            }
-                        }
-                    }
                     items(entries, key = { it.id }) { e ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
@@ -146,7 +129,7 @@ private fun moodOf(ratio: Float) = when {
  */
 @Composable
 fun PiggyCard(savings: Savings, scale: Long) {
-    // 총자산 = 사용불가 + 사용가능
+    // 저축 총합 = 사용불가 + 사용가능
     val liquid = savings.liquid
     val saved = savings.fixed + liquid
     // 저금통이 얼마나 두둑한지만 정하는 기준 금액. 화면에는 보이지 않는다.
@@ -215,7 +198,7 @@ fun PiggyCard(savings: Savings, scale: Long) {
             }
         }
 
-        Text("총자산", color = Muted, fontSize = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Text("저축 총합", color = Muted, fontSize = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
         Row(Modifier.align(Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 "${won(saved.coerceAtLeast(0))}원",

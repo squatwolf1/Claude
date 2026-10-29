@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.squatwolf.gagyebu.LedgerViewModel
+import com.squatwolf.gagyebu.data.Assets
 import com.squatwolf.gagyebu.data.Entry
 import java.time.LocalDate
 import java.time.YearMonth
@@ -99,11 +100,15 @@ fun LedgerScreen(vm: LedgerViewModel) {
     if (stats) {
         BackHandler { stats = false }
         val saved by vm.saved.collectAsStateWithLifecycle()
+        val all by vm.allEntries.collectAsStateWithLifecycle()
+        val assets = remember(all, vm.startAsset) { Assets.of(all, vm.startAsset) }
         StatsScreen(
             vm.month,
             entries,
             saved = saved,
             piggyScale = vm.goal,
+            assets = assets,
+            onStartAsset = vm::changeStartAsset,
             onPick = vm::pickMonth,
             onBack = { stats = false },
         )

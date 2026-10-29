@@ -88,10 +88,43 @@ data class Rule(
     )
 }
 
+/**
+ * 총자산. 시작 자산 + 끝난 달들의 합계(수입 - 지출). 저금은 지갑에서 저금통으로 옮긴 것이라
+ * 지출로 치지 않는다(자산은 그대로). 이번 달 합계는 다음 달 1일에 들어간다.
+ */
+data class Assets(
+    val start: Long = 0,
+    /** 끝난 달별 합계, 최근 달부터. */
+    val months: List<Pair<YearMonth, Long>> = emptyList(),
+    /** 아직 진행 중인 이번 달 합계(오늘까지). */
+    val pending: Long = 0,
+) {
+    val total get() = start + months.sumOf { it.second }
+
+    companion object {
+        fun of(entries: List<Entry>, start: Long, today: LocalDate = LocalDate.now()): Assets {
+            val thisMonth = YearMonth.from(today)
+            fun net(list: List<Entry>) = list.sumOf {
+                when {
+                    it.income -> it.amount
+                    it.category in SAVING_CATEGORIES -> 0L
+                    else -> -it.amount
+                }
+            }
+            val byMonth = entries.filter { it.date <= today.toString() }.groupBy { YearMonth.parse(it.date.take(7)) }
+            val done = byMonth.filterKeys { it < thisMonth }.map { (m, list) -> m to net(list) }.sortedByDescending { it.first }
+            return Assets(start, done, net(byMonth[thisMonth].orEmpty()))
+        }
+    }
+}
+
 interface LedgerRepo {
     /** 화면 위에 보여 줄 연결 상태. */
     val status: StateFlow<String>
     val rules: Flow<List<Rule>>
+
+    /** 모든 달의 내역. 총자산 계산용. */
+    val allEntries: Flow<List<Entry>>
 
     /** 지금까지 저금 분류로 넣은 돈(사용불가·사용가능). */
     val saved: Flow<Savings>
