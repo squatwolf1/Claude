@@ -178,8 +178,9 @@ fun LedgerScreen(vm: LedgerViewModel) {
             date = LocalDate.parse(e.date),
             editing = e,
             onDismiss = { editing = null },
-            onSave = { inc, amount, cat, memo, method, _ ->
-                vm.update(e, inc, amount, cat, memo, method)
+            onSave = { inc, amount, cat, memo, method, monthly ->
+                if (monthly) vm.makeMonthly(e, inc, amount, cat, memo, method)
+                else vm.update(e, inc, amount, cat, memo, method)
                 editing = null
             },
             onDelete = {

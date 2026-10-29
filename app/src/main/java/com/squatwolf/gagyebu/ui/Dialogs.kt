@@ -129,7 +129,8 @@ fun AddEntryDialog(
                         FilterChip(selected = method == it, onClick = { method = it }, label = { Text(it) })
                     }
                 }
-                if (editing == null) {
+                // 새 내역이나 일반 내역 수정에서는 매달 고정으로 바꿀 수 있다.
+                if (editing == null || editing.ruleId.isEmpty()) {
                     Row(
                         Modifier.fillMaxWidth().clickable { monthly = !monthly },
                         verticalAlignment = Alignment.CenterVertically,
@@ -140,7 +141,7 @@ fun AddEntryDialog(
                             Text("매월 ${date.dayOfMonth}일에 자동으로 들어가요", fontSize = 12.sp, color = Muted)
                         }
                     }
-                } else if (editing.ruleId.isNotEmpty()) {
+                } else {
                     Text("🔁 매달 고정 내역이에요. 이번 달 것만 바뀌어요.", fontSize = 12.sp, color = Muted)
                 }
                 if (onDelete != null) {

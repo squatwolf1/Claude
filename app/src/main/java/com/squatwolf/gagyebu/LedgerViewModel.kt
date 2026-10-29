@@ -152,6 +152,24 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
         repo.add(entry.copy(income = income, amount = amount, category = category, memo = memo, method = method))
     }
 
+    /** 일반 내역을 매달 고정으로 바꾼다. 그 날짜로 규칙을 만들고, 원래 내역은 규칙이 만든 내역으로 바뀐다. */
+    fun makeMonthly(entry: Entry, income: Boolean, amount: Long, category: String, memo: String, method: String) {
+        repo.addRule(
+            Rule(
+                id = UUID.randomUUID().toString().take(12),
+                day = LocalDate.parse(entry.date).dayOfMonth,
+                income = income,
+                amount = amount,
+                category = category,
+                memo = memo,
+                method = method,
+                author = entry.author.ifEmpty { name },
+                start = entry.date.take(7),
+            )
+        )
+        repo.delete(entry.id)
+    }
+
     /** 내역 하나를 지운다. 고정 내역이면 그 달만 건너뛴다. */
     fun delete(entry: Entry) {
         if (entry.ruleId.isNotEmpty()) {
