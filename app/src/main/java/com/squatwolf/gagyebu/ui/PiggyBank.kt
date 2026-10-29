@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -62,13 +63,20 @@ private val Gold = Color(0xFFFFCF4A)
 private val FixedGold = Color(0xFFE0A21B)
 private val LiquidBlue = Color(0xFF5BB8C6)
 
+private val FIXED_HELP = "🔒 부동 저금이란?" to
+    "적금·예금·청약처럼 정해진 기간 동안 묶어 두어서 바로 꺼내 쓰기 어려운 돈이에요.\n\n" +
+    "지출 분류에서 '🔒 부동저금'으로 넣으면 여기에 모여요."
+private val LIQUID_HELP = "💧 유동 저금이란?" to
+    "파킹통장·비상금·생활비 통장처럼 필요하면 언제든 바로 꺼내 쓸 수 있는 돈이에요.\n\n" +
+    "지출 분류에서 '💧 유동저금'으로 넣으면 여기에 모여요."
+
 @Composable
-private fun SavingCell(label: String, amount: Long, color: Color, modifier: Modifier) {
+private fun SavingCell(label: String, amount: Long, color: Color, modifier: Modifier, onHelp: () -> Unit) {
     Column(
-        modifier.clip(RoundedCornerShape(12.dp)).background(Color.White).padding(10.dp),
+        modifier.clip(RoundedCornerShape(12.dp)).background(Color.White).clickable(onClick = onHelp).padding(10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(label, color = Muted, fontSize = 12.sp)
+        Text("$label ⓘ", color = Muted, fontSize = 12.sp)
         Text("${won(amount.coerceAtLeast(0))}원", color = color, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
@@ -93,6 +101,7 @@ fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit) {
     val fill by animateFloatAsState(ratio.coerceIn(0f, 1.2f), tween(900), label = "piggy")
     val mood = moodOf(ratio)
     var editing by remember { mutableStateOf(false) }
+    var explain by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     Column(
         Modifier
@@ -175,8 +184,8 @@ fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit) {
         Spacer(Modifier.height(12.dp))
         // 부동 · 유동 나눠 보기
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SavingCell("🔒 부동 저금", savings.fixed, FixedGold, Modifier.weight(1f))
-            SavingCell("💧 유동 저금", savings.liquid, LiquidBlue, Modifier.weight(1f))
+            SavingCell("🔒 부동 저금", savings.fixed, FixedGold, Modifier.weight(1f)) { explain = FIXED_HELP }
+            SavingCell("💧 유동 저금", savings.liquid, LiquidBlue, Modifier.weight(1f)) { explain = LIQUID_HELP }
         }
         if (saved > 0) {
             val fixedShare = (savings.fixed.coerceAtLeast(0).toFloat() / saved).coerceIn(0f, 1f)
@@ -194,6 +203,15 @@ fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit) {
             Text("${(ratio * 100).roundToInt()}%", color = PigDark, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
         Text("지출에서 🔒 부동저금 · 💧 유동저금 분류로 넣으면 여기에 모여요", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+    }
+
+    explain?.let { (title, body) ->
+        AlertDialog(
+            onDismissRequest = { explain = null },
+            title = { Text(title) },
+            text = { Text(body, fontSize = 15.sp) },
+            confirmButton = { TextButton(onClick = { explain = null }) { Text("확인") } },
+        )
     }
 
     if (editing) {
