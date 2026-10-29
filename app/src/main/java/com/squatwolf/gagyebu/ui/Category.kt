@@ -1,5 +1,7 @@
 package com.squatwolf.gagyebu.ui
 
+import com.squatwolf.gagyebu.data.Entry
+
 /** 분류마다 한눈에 알아보게 붙이는 그림 글자. */
 fun emojiOf(category: String) = when (category) {
     "식비" -> "🍚"
@@ -19,3 +21,8 @@ fun emojiOf(category: String) = when (category) {
     "부수입" -> "💵"
     else -> "📌"
 }
+
+/** 고정비로 보는 분류. 매달 고정 내역도 고정비다. */
+val fixedCategories = setOf("공과금", "대출")
+
+fun Entry.isFixedCost() = !income && (ruleId.isNotEmpty() || category in fixedCategories)

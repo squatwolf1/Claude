@@ -56,6 +56,7 @@ val Ink = Color(0xFF222222)
 val Muted = Color(0xFFAAAAAA)
 val Blue = Color(0xFF5B8DEF)
 val Red = Color(0xFFE5655B)
+val Fixed = Color(0xFF8E7CC3)
 private val Selected = Color(0xFFE4E4E4)
 
 fun won(v: Long) = "%,d".format(v)
@@ -68,6 +69,7 @@ fun LedgerScreen(vm: LedgerViewModel) {
     var adding by remember { mutableStateOf(false) }
     var sharing by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<Entry?>(null) }
+    var editing by remember { mutableStateOf<Entry?>(null) }
     var stats by remember { mutableStateOf(false) }
 
     val byDate = remember(entries) { entries.groupBy { it.date } }
@@ -143,8 +145,8 @@ fun LedgerScreen(vm: LedgerViewModel) {
                 }
                 Spacer(Modifier.height(8.dp))
             } }
-            item { Summary(income, expense) }
             item { Column { Calendar(vm.month, vm.selected, byDate) { vm.selected = it } } }
+            item { Summary(income, expense) }
             if (dayEntries.isEmpty()) {
                 item {
                     Text(
@@ -156,7 +158,7 @@ fun LedgerScreen(vm: LedgerViewModel) {
                 }
             }
             items(dayEntries, key = { it.id }) { e ->
-                EntryCard(e, Modifier.clickable { deleting = e })
+                EntryCard(e, Modifier.clickable { editing = e })
             }
         }
     }
@@ -168,6 +170,21 @@ fun LedgerScreen(vm: LedgerViewModel) {
             onSave = { inc, amount, cat, memo, method, monthly ->
                 vm.add(inc, amount, cat, memo, method, monthly)
                 adding = false
+            },
+        )
+    }
+    editing?.let { e ->
+        AddEntryDialog(
+            date = LocalDate.parse(e.date),
+            editing = e,
+            onDismiss = { editing = null },
+            onSave = { inc, amount, cat, memo, method, _ ->
+                vm.update(e, inc, amount, cat, memo, method)
+                editing = null
+            },
+            onDelete = {
+                editing = null
+                deleting = e
             },
         )
     }
@@ -284,16 +301,17 @@ private fun Calendar(month: YearMonth, selected: LocalDate, byDate: Map<String, 
             for (i in 0 until 7) {
                 val day = week.getOrNull(i)
                 if (day == null) {
-                    Spacer(Modifier.weight(1f).height(76.dp))
+                    Spacer(Modifier.weight(1f).height(88.dp))
                     continue
                 }
                 val list = byDate[day.toString()].orEmpty()
                 val inc = list.filter { it.income }.sumOf { it.amount }
-                val exp = list.filter { !it.income }.sumOf { it.amount }
+                val fixed = list.filter { it.isFixedCost() }.sumOf { it.amount }
+                val exp = list.filter { !it.income && !it.isFixedCost() }.sumOf { it.amount }
                 Column(
                     Modifier
                         .weight(1f)
-                        .height(76.dp)
+                        .height(88.dp)
                         .padding(2.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(if (day == selected) Selected else Color.Transparent)
@@ -307,9 +325,10 @@ private fun Calendar(month: YearMonth, selected: LocalDate, byDate: Map<String, 
                         fontWeight = if (day == today) FontWeight.Bold else FontWeight.Normal,
                         color = Ink,
                     )
-                    // 그날 수입 합계(파랑), 지출 합계(빨강)
+                    // 그날 수입 합계(파랑), 지출 합계(빨강), 고정비(보라 띠)
                     if (inc > 0) DayAmount("+${won(inc)}", Blue)
                     if (exp > 0) DayAmount("-${won(exp)}", Red)
+                    if (fixed > 0) FixedAmount(fixed)
                 }
             }
         }
@@ -330,6 +349,24 @@ private fun DayAmount(text: String, color: Color) {
     )
 }
 
+/** 고정비는 보라색 띠에 🔁 표시로 일반 지출과 구분한다. */
+@Composable
+private fun FixedAmount(amount: Long) {
+    val text = "🔁${won(amount)}"
+    Text(
+        text,
+        color = Color.White,
+        fontSize = if (text.length > 8) 8.sp else 10.sp,
+        maxLines = 1,
+        softWrap = false,
+        modifier = Modifier
+            .padding(top = 2.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(Fixed)
+            .padding(horizontal = 3.dp, vertical = 1.dp),
+    )
+}
+
 @Composable
 private fun EntryCard(e: Entry, modifier: Modifier) {
     Row(
@@ -345,7 +382,7 @@ private fun EntryCard(e: Entry, modifier: Modifier) {
         Text("${emojiOf(e.category)} ${e.category}", fontSize = 16.sp, modifier = Modifier.weight(0.9f))
         Column(Modifier.weight(1.4f)) {
             Text(e.memo.ifEmpty { "-" }, fontSize = 15.sp, maxLines = 1)
-            Text(listOf(if (e.ruleId.isNotEmpty()) "🔁 매달" else "", e.method, e.author).filter { it.isNotEmpty() }.joinToString(" · "), color = Muted, fontSize = 12.sp)
+            Text(listOf(if (e.ruleId.isNotEmpty()) "🔁 매달" else if (e.isFixedCost()) "고정비" else "", e.method, e.author).filter { it.isNotEmpty() }.joinToString(" · "), color = Muted, fontSize = 12.sp)
         }
         Text(
             (if (e.income) "+" else "-") + won(e.amount) + "원",
