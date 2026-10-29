@@ -36,11 +36,8 @@ import com.squatwolf.gagyebu.data.SAVING_CATEGORY
 import java.time.LocalDate
 import java.time.YearMonth
 
-/** 고정비라서 무지출을 깨지 않는 분류. */
-private val fixedCategories = setOf(SAVING_CATEGORY, "공과금", "대출")
-
-/** 순수하게 쓴 돈인지. 매달 고정 내역과 공과금·대출·저금은 빼고 센다. */
-private fun Entry.isSpending() = !income && ruleId.isEmpty() && category !in fixedCategories
+/** 순수하게 쓴 돈인지. 고정비(매달 고정·공과금·대출)와 저금은 빼고 센다. */
+private fun Entry.isSpending() = !income && !isFixedCost() && category != SAVING_CATEGORY
 
 /** 이 달에 순수 소비가 하나도 없는 날 수. 아직 오지 않은 날은 세지 않는다. */
 fun noSpendDays(month: YearMonth, entries: List<Entry>, today: LocalDate = LocalDate.now()): Int {

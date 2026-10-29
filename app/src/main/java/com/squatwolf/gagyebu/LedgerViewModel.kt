@@ -147,6 +147,11 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** 적어 둔 내역을 고친다. 같은 id 로 덮어쓴다. */
+    fun update(entry: Entry, income: Boolean, amount: Long, category: String, memo: String, method: String) {
+        repo.add(entry.copy(income = income, amount = amount, category = category, memo = memo, method = method))
+    }
+
     /** 내역 하나를 지운다. 고정 내역이면 그 달만 건너뛴다. */
     fun delete(entry: Entry) {
         if (entry.ruleId.isNotEmpty()) {

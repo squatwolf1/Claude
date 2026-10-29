@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.squatwolf.gagyebu.LedgerViewModel
+import com.squatwolf.gagyebu.data.Entry
 import java.time.LocalDate
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -49,18 +50,21 @@ fun AddEntryDialog(
     date: LocalDate,
     onDismiss: () -> Unit,
     onSave: (income: Boolean, amount: Long, category: String, memo: String, method: String, monthly: Boolean) -> Unit,
+    editing: Entry? = null,
+    onDelete: (() -> Unit)? = null,
 ) {
-    var income by remember { mutableStateOf(false) }
-    var amount by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf(expenseCategories[0]) }
-    var memo by remember { mutableStateOf("") }
-    var method by remember { mutableStateOf(methods[0]) }
+    // editing 이 있으면 그 내역 값으로 채운 수정 창이 된다.
+    var income by remember { mutableStateOf(editing?.income ?: false) }
+    var amount by remember { mutableStateOf(editing?.amount?.toString() ?: "") }
+    var category by remember { mutableStateOf(editing?.category ?: expenseCategories[0]) }
+    var memo by remember { mutableStateOf(editing?.memo ?: "") }
+    var method by remember { mutableStateOf(editing?.method?.ifEmpty { null } ?: methods[0]) }
     var monthly by remember { mutableStateOf(false) }
     val value = amount.toLongOrNull() ?: 0
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("${date.monthValue}월 ${date.dayOfMonth}일 내역") },
+        title = { Text("${date.monthValue}월 ${date.dayOfMonth}일 내역" + if (editing != null) " 수정" else "") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -98,14 +102,23 @@ fun AddEntryDialog(
                         FilterChip(selected = method == it, onClick = { method = it }, label = { Text(it) })
                     }
                 }
-                Row(
-                    Modifier.fillMaxWidth().clickable { monthly = !monthly },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Checkbox(checked = monthly, onCheckedChange = { monthly = it })
-                    Column {
-                        Text("🔁 매달 고정", fontWeight = FontWeight.Bold)
-                        Text("매월 ${date.dayOfMonth}일에 자동으로 들어가요", fontSize = 12.sp, color = Muted)
+                if (editing == null) {
+                    Row(
+                        Modifier.fillMaxWidth().clickable { monthly = !monthly },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = monthly, onCheckedChange = { monthly = it })
+                        Column {
+                            Text("🔁 매달 고정", fontWeight = FontWeight.Bold)
+                            Text("매월 ${date.dayOfMonth}일에 자동으로 들어가요", fontSize = 12.sp, color = Muted)
+                        }
+                    }
+                } else if (editing.ruleId.isNotEmpty()) {
+                    Text("🔁 매달 고정 내역이에요. 이번 달 것만 바뀌어요.", fontSize = 12.sp, color = Muted)
+                }
+                if (onDelete != null) {
+                    OutlinedButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
+                        Text("이 내역 삭제", color = Red)
                     }
                 }
             }
