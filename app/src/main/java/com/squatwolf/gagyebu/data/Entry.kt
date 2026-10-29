@@ -107,7 +107,8 @@ data class Assets(
             fun net(list: List<Entry>) = list.sumOf {
                 when {
                     it.income -> it.amount
-                    it.category in SAVING_CATEGORIES -> 0L
+                    // 사용불가 저금은 묶인 돈이라 총자산에서 빼고, 사용가능 저금은 그대로 둔다
+                    it.category == LIQUID_SAVING || it.category in OLD_LIQUID_SAVING -> 0L
                     else -> -it.amount
                 }
             }
