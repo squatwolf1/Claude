@@ -57,14 +57,16 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putFloat("uiScale", value).commit()
     }
 
-    /** 총자산을 직접 고친 만큼의 금액. 저금(사용가능)에 더해서 보여 준다. 이 폰에만 저장. */
-    var assetBase by mutableStateOf(prefs.getLong("assetBase", 0L))
+    /** 앱을 쓰기 전에 가지고 있던 자산. 총자산 = 시작 자산 + 끝난 달 합계들. 이 폰에만 저장. */
+    var startAsset by mutableStateOf(prefs.getLong("startAsset", 0L))
         private set
 
-    fun changeAssetBase(value: Long) {
-        assetBase = value
-        prefs.edit().putLong("assetBase", value).commit()
+    fun changeStartAsset(value: Long) {
+        startAsset = value
+        prefs.edit().putLong("startAsset", value).commit()
     }
+
+    val allEntries: StateFlow<List<Entry>> = repo.allEntries.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     fun changeGoal(value: Long) {
         goal = value

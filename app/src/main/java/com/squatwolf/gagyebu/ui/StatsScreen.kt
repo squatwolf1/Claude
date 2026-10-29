@@ -51,6 +51,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.squatwolf.gagyebu.data.Assets
 import com.squatwolf.gagyebu.data.Entry
 import com.squatwolf.gagyebu.data.SAVING_CATEGORIES
 import com.squatwolf.gagyebu.data.Savings
@@ -74,6 +75,8 @@ fun StatsScreen(
     entries: List<Entry>,
     saved: Savings,
     piggyScale: Long,
+    assets: Assets,
+    onStartAsset: (Long) -> Unit,
     onPick: (YearMonth) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -137,6 +140,8 @@ fun StatsScreen(
                 }
             }
             // 저금통은 그래프 아래
+            // 총자산은 저금통 위에 따로
+            item { AssetCard(assets, onStartAsset) }
             item { PiggyCard(saved, piggyScale) }
         }
     }
