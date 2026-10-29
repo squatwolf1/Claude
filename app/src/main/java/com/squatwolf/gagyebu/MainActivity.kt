@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import com.squatwolf.gagyebu.ui.AutoScale
 import com.squatwolf.gagyebu.ui.GagyebuTheme
 import com.squatwolf.gagyebu.ui.LedgerScreen
 
@@ -17,22 +18,14 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             GagyebuTheme {
-                LedgerScreen(vm)
+                AutoScale(vm.uiScale) {
+                    LedgerScreen(vm)
+                }
             }
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        AppExit.leavingForExternal = false
-    }
-
-    // 홈으로 나가거나 뒤로 가기로 닫으면 백그라운드에 남기지 않고 최근 앱 목록에서도 지운다.
-    override fun onStop() {
-        super.onStop()
-        if (!isChangingConfigurations && !AppExit.leavingForExternal) finishAndRemoveTask()
-    }
-
+    // 홈으로 나가면 백그라운드에 남고, 뒤로 가기 → '종료'를 고르면 여기서 프로세스까지 끝낸다.
     override fun onDestroy() {
         super.onDestroy()
         if (isFinishing && !isChangingConfigurations) Process.killProcess(Process.myPid())

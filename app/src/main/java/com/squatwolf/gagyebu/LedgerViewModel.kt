@@ -47,6 +47,15 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
     var goal by mutableStateOf(prefs.getLong("goal", 1_000_000L))
         private set
 
+    /** 설정에서 고른 화면 크기 배율. */
+    var uiScale by mutableStateOf(prefs.getFloat("uiScale", 1f))
+        private set
+
+    fun changeUiScale(value: Float) {
+        uiScale = value
+        prefs.edit().putFloat("uiScale", value).apply()
+    }
+
     fun changeGoal(value: Long) {
         goal = value
         prefs.edit().putLong("goal", value).apply()

@@ -17,6 +17,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,9 +34,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.squatwolf.gagyebu.AppExit
 import com.squatwolf.gagyebu.LedgerViewModel
 import java.time.LocalDate
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 private val expenseCategories = listOf("식비", "교통", "쇼핑", "생활", "공과금", "대출", "유류", "병원", "저금", "기타")
@@ -131,7 +132,7 @@ fun ShareDialog(vm: LedgerViewModel, onDismiss: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("함께 쓰기") },
+        title = { Text("설정 · 함께 쓰기") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
@@ -140,6 +141,13 @@ fun ShareDialog(vm: LedgerViewModel, onDismiss: () -> Unit) {
                     label = { Text("내 이름 (내역에 표시)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
+                )
+                Text("화면 크기 ${(vm.uiScale * 100).roundToInt()}%", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Slider(
+                    value = vm.uiScale,
+                    onValueChange = { vm.changeUiScale((it * 20).roundToInt() / 20f) },
+                    valueRange = 0.7f..1.3f,
+                    steps = 11,
                 )
                 Text("앱 버전: 빌드 ${vm.build}", color = Muted, fontSize = 12.sp)
                 HorizontalDivider()
@@ -157,7 +165,6 @@ fun ShareDialog(vm: LedgerViewModel, onDismiss: () -> Unit) {
                             val send = Intent(Intent.ACTION_SEND)
                                 .setType("text/plain")
                                 .putExtra(Intent.EXTRA_TEXT, "꼬빵 초대코드: $code\n앱의 공유 버튼 → 코드 입력에 넣어 줘!")
-                            AppExit.leavingForExternal = true
                             context.startActivity(Intent.createChooser(send, "초대코드 보내기"))
                         }) { Text("코드 보내기") }
                         HorizontalDivider()
