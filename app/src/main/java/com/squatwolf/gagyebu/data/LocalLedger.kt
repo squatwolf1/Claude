@@ -41,6 +41,23 @@ class LocalLedger(private val prefs: SharedPreferences) : LedgerRepo {
         saveRules()
     }
 
+    override fun updateRule(
+        ruleId: String, fromDate: String, income: Boolean, amount: Long, category: String, memo: String, method: String,
+    ) {
+        ruleList.value = ruleList.value.map {
+            if (it.id == ruleId) it.copy(income = income, amount = amount, category = category, memo = memo, method = method) else it
+        }
+        saveRules()
+        all.value = all.value.map {
+            if (it.ruleId == ruleId && it.date >= fromDate) {
+                it.copy(income = income, amount = amount, category = category, memo = memo, method = method)
+            } else {
+                it
+            }
+        }
+        save()
+    }
+
     override fun stop(ruleId: String, month: String) {
         ruleList.value = ruleList.value.map { if (it.id == ruleId) it.copy(end = month) else it }
         saveRules()

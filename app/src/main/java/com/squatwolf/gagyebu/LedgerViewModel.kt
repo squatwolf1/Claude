@@ -166,6 +166,8 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
     /** 적어 둔 내역을 고친다. 같은 id 로 덮어쓴다. */
     fun update(entry: Entry, income: Boolean, amount: Long, category: String, memo: String, method: String) {
         repo.add(entry.copy(income = income, amount = amount, category = category, memo = memo, method = method))
+        // 매달 고정이면 규칙과 이후 달 내역도 같이 고친다. 안 그러면 다음 달·재시작 때 예전 값이 다시 나온다.
+        if (entry.ruleId.isNotEmpty()) repo.updateRule(entry.ruleId, entry.date, income, amount, category, memo, method)
     }
 
     /** 일반 내역을 매달 고정으로 바꾼다. 그 날짜로 규칙을 만들고, 원래 내역은 규칙이 만든 내역으로 바뀐다. */

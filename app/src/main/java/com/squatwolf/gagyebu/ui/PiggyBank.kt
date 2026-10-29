@@ -141,19 +141,18 @@ private fun moodOf(ratio: Float) = when {
 }
 
 /**
- * 돼지 저금통. 모은 돈이 목표에 가까울수록 몸이 커지고 금색으로 차오르며 표정이 밝아진다.
+ * 돼지 저금통. 모은 돈이 많을수록 몸이 커지고 금색으로 차오르며 표정이 밝아진다.
  * 동전·반짝이·돈주머니 그림: Microsoft Fluent Emoji (MIT, licenses/FluentEmoji-MIT.txt).
  */
 @Composable
-fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit, assetBase: Long, onAssetBase: (Long) -> Unit) {
-    // 총자산 = 사용불가 + 사용가능. 직접 고친 금액(assetBase)은 사용가능에 더한다.
-    val liquid = savings.liquid + assetBase
+fun PiggyCard(savings: Savings, scale: Long) {
+    // 총자산 = 사용불가 + 사용가능
+    val liquid = savings.liquid
     val saved = savings.fixed + liquid
-    var editingAsset by remember { mutableStateOf(false) }
-    val ratio = if (goal > 0) saved.coerceAtLeast(0).toFloat() / goal else 0f
+    // 저금통이 얼마나 두둑한지만 정하는 기준 금액. 화면에는 보이지 않는다.
+    val ratio = if (scale > 0) saved.coerceAtLeast(0).toFloat() / scale else 0f
     val fill by animateFloatAsState(ratio.coerceIn(0f, 1.2f), tween(900), label = "piggy")
     val mood = moodOf(ratio)
-    var editing by remember { mutableStateOf(false) }
     var showing by remember { mutableStateOf<Boolean?>(null) } // true 사용불가, false 사용가능
 
     Column(
@@ -166,7 +165,6 @@ fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit, assetBase: L
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("🐷 우리 저금통", fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            TextButton(onClick = { editing = true }) { Text("목표 바꾸기", color = PigDark, fontSize = 13.sp) }
         }
 
         BoxWithConstraints(Modifier.fillMaxWidth().height(220.dp)) {
@@ -225,14 +223,13 @@ fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit, assetBase: L
                 fontWeight = FontWeight.Bold,
                 color = PigDark,
             )
-            TextButton(onClick = { editingAsset = true }) { Text("✏️ 수정", color = PigDark, fontSize = 13.sp) }
         }
         Text(
             when (mood) {
                 Mood.Hungry -> "텅텅… 배고파요 🥺"
                 Mood.Meh -> "조금씩 모이고 있어요"
                 Mood.Happy -> "꿀꿀! 든든해요 😊"
-                Mood.Full -> "배불러요! 목표 달성 🎉"
+                Mood.Full -> "배불러요! 🎉"
             },
             fontSize = 15.sp,
             modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -250,14 +247,6 @@ fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit, assetBase: L
                 if (fixedShare < 1f) Box(Modifier.weight(1f - fixedShare).fillMaxHeight().background(LiquidBlue))
             }
         }
-        Spacer(Modifier.height(12.dp))
-        Box(Modifier.fillMaxWidth().height(14.dp).clip(CircleShape).background(PigLight)) {
-            Box(Modifier.fillMaxWidth(ratio.coerceIn(0f, 1f)).height(14.dp).clip(CircleShape).background(Gold))
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-            Text("목표 ${won(goal)}원", color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
-            Text("${(ratio * 100).roundToInt()}%", color = PigDark, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        }
         Text("지출에서 🔒 저금(사용불가) · 💧 저금(사용가능) 분류로 넣으면 여기에 모여요", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
     }
 
@@ -266,65 +255,11 @@ fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit, assetBase: L
             title = if (fixed) "🔒 저금(사용불가) 내역" else "💧 저금(사용가능) 내역",
             entries = if (fixed) savings.fixedEntries else savings.liquidEntries,
             onDismiss = { showing = null },
-            base = if (fixed) 0 else assetBase,
-        )
-    }
-
-    if (editingAsset) {
-        var text by remember { mutableStateOf(saved.coerceAtLeast(0).toString()) }
-        AlertDialog(
-            onDismissRequest = { editingAsset = false },
-            title = { Text("총자산 수정") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = text,
-                        onValueChange = { text = it.filter(Char::isDigit).take(13) },
-                        label = { Text("지금 총자산 (원)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        visualTransformation = ThousandsTransformation,
-                        singleLine = true,
-                    )
-                    Text("저금(사용불가)은 그대로 두고, 차이만큼 💧 저금(사용가능)에 더하거나 빼요.", color = Muted, fontSize = 12.sp)
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    text.toLongOrNull()?.let { total -> onAssetBase(total - savings.fixed - savings.liquid) }
-                    editingAsset = false
-                }) { Text("저장") }
-            },
-            dismissButton = { TextButton(onClick = { editingAsset = false }) { Text("취소") } },
-        )
-    }
-
-    if (editing) {
-        var text by remember { mutableStateOf(goal.toString()) }
-        AlertDialog(
-            onDismissRequest = { editing = false },
-            title = { Text("저금 목표") },
-            text = {
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it.filter(Char::isDigit).take(12) },
-                    label = { Text("목표 금액 (원)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    visualTransformation = ThousandsTransformation,
-                    singleLine = true,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    text.toLongOrNull()?.takeIf { it > 0 }?.let(onGoal)
-                    editing = false
-                }) { Text("저장") }
-            },
-            dismissButton = { TextButton(onClick = { editing = false }) { Text("취소") } },
         )
     }
 }
 
-/** fill: 목표 대비 비율(0~1.2). 몸 크기와 금색 차오름이 여기에 따라 바뀐다. */
+/** fill: 기준 금액 대비 비율(0~1.2). 몸 크기와 금색 차오름이 여기에 따라 바뀐다. */
 private fun DrawScope.drawPig(fill: Float, mood: Mood) {
     val f = fill.coerceIn(0f, 1.2f)
     val cx = size.width * 0.45f

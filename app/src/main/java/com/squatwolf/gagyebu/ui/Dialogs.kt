@@ -142,7 +142,7 @@ fun AddEntryDialog(
                         }
                     }
                 } else {
-                    Text("🔁 매달 고정 내역이에요. 이번 달 것만 바뀌어요.", fontSize = 12.sp, color = Muted)
+                    Text("🔁 매달 고정 내역이에요. 이번 달부터 앞으로 모두 이 값으로 바뀌어요.", fontSize = 12.sp, color = Muted)
                 }
                 if (onDelete != null) {
                     OutlinedButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
