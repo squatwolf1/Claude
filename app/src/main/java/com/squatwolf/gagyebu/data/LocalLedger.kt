@@ -16,9 +16,7 @@ class LocalLedger(private val prefs: SharedPreferences) : LedgerRepo {
     private val all = MutableStateFlow(load())
     private val ruleList = MutableStateFlow(loadRules())
     override val rules: Flow<List<Rule>> = ruleList
-    override val saved: Flow<Long> = all.map { list ->
-        list.filter { it.category == SAVING_CATEGORY }.sumOf { if (it.income) -it.amount else it.amount }
-    }
+    override val saved: Flow<Savings> = all.map { Savings.of(it) }
 
     override fun entries(month: YearMonth): Flow<List<Entry>> =
         all.map { list -> list.filter { it.date.startsWith(month.toString()) } }

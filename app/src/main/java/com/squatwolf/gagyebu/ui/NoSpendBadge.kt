@@ -32,12 +32,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.squatwolf.gagyebu.R
 import com.squatwolf.gagyebu.data.Entry
-import com.squatwolf.gagyebu.data.SAVING_CATEGORY
+import com.squatwolf.gagyebu.data.SAVING_CATEGORIES
 import java.time.LocalDate
 import java.time.YearMonth
 
 /** 순수하게 쓴 돈인지. 고정비(매달 고정·공과금·대출)와 저금은 빼고 센다. */
-private fun Entry.isSpending() = !income && !isFixedCost() && category != SAVING_CATEGORY
+private fun Entry.isSpending() = !income && !isFixedCost() && category !in SAVING_CATEGORIES
 
 /** 이 달에 순수 소비가 하나도 없는 날 수. 아직 오지 않은 날은 세지 않는다. */
 fun noSpendDays(month: YearMonth, entries: List<Entry>, today: LocalDate = LocalDate.now()): Int {

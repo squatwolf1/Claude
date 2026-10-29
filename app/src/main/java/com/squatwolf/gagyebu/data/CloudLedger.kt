@@ -115,17 +115,13 @@ class CloudLedger(private val prefs: SharedPreferences) : LedgerRepo {
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    override val saved: Flow<Long> = code.flatMapLatest { c ->
+    override val saved: Flow<Savings> = code.flatMapLatest { c ->
         if (c == null) {
-            flowOf(0L)
+            flowOf(Savings())
         } else {
             callbackFlow {
-                val reg = entriesOf(c).whereEqualTo("category", SAVING_CATEGORY).addSnapshotListener { snap, _ ->
-                    val sum = snap?.documents.orEmpty().sumOf { d ->
-                        val amount = d.getLong("amount") ?: 0
-                        if (d.getBoolean("income") == true) -amount else amount
-                    }
-                    trySend(sum)
+                val reg = entriesOf(c).whereIn("category", SAVING_CATEGORIES.toList()).addSnapshotListener { snap, _ ->
+                    trySend(Savings.of(snap?.documents.orEmpty().mapNotNull { it.toEntry() }))
                 }
                 awaitClose { reg.remove() }
             }

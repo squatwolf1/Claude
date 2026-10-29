@@ -14,6 +14,7 @@ import com.squatwolf.gagyebu.data.Entry
 import com.squatwolf.gagyebu.data.LedgerRepo
 import com.squatwolf.gagyebu.data.LocalLedger
 import com.squatwolf.gagyebu.data.Rule
+import com.squatwolf.gagyebu.data.Savings
 import com.squatwolf.gagyebu.data.Updater
 import java.time.LocalDate
 import java.time.YearMonth
@@ -41,7 +42,7 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
 
     val status: StateFlow<String> = repo.status
 
-    val saved: StateFlow<Long> = repo.saved.stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
+    val saved: StateFlow<Savings> = repo.saved.stateIn(viewModelScope, SharingStarted.Eagerly, Savings())
 
     /** 저금 목표. 이 폰에만 저장한다. */
     var goal by mutableStateOf(prefs.getLong("goal", 1_000_000L))
