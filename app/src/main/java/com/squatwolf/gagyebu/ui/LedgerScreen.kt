@@ -105,6 +105,8 @@ fun LedgerScreen(vm: LedgerViewModel) {
             saved = saved,
             goal = vm.goal,
             onGoal = vm::changeGoal,
+            assetBase = vm.assetBase,
+            onAssetBase = vm::changeAssetBase,
             onPick = vm::pickMonth,
             onBack = { stats = false },
         )

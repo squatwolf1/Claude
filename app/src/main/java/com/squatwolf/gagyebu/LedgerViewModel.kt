@@ -57,6 +57,15 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putFloat("uiScale", value).commit()
     }
 
+    /** 총자산을 직접 고친 만큼의 금액. 유동 저금에 더해서 보여 준다. 이 폰에만 저장. */
+    var assetBase by mutableStateOf(prefs.getLong("assetBase", 0L))
+        private set
+
+    fun changeAssetBase(value: Long) {
+        assetBase = value
+        prefs.edit().putLong("assetBase", value).commit()
+    }
+
     fun changeGoal(value: Long) {
         goal = value
         prefs.edit().putLong("goal", value).commit()

@@ -69,15 +69,32 @@ private val LiquidBlue = Color(0xFF5BB8C6)
 
 /** 저금 칸을 누르면 그 칸에 들어간 내역을 보여 준다. */
 @Composable
-private fun SavingListDialog(title: String, entries: List<Entry>, onDismiss: () -> Unit) {
+private fun SavingListDialog(title: String, entries: List<Entry>, onDismiss: () -> Unit, base: Long = 0) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            if (entries.isEmpty()) {
+            if (entries.isEmpty() && base == 0L) {
                 Text("아직 들어간 내역이 없어요.", color = Muted, fontSize = 15.sp)
             } else {
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                    // 총자산을 직접 고친 만큼은 유동 저금에 한 줄로 보여 준다.
+                    if (base != 0L) {
+                        item {
+                            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("✏️ 직접 입력한 자산", fontSize = 15.sp)
+                                    Text("총자산 수정으로 맞춘 금액", color = Muted, fontSize = 12.sp)
+                                }
+                                Text(
+                                    (if (base < 0) "-" else "+") + won(kotlin.math.abs(base)) + "원",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (base < 0) Red else PigDark,
+                                )
+                            }
+                        }
+                    }
                     items(entries, key = { it.id }) { e ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
@@ -128,8 +145,11 @@ private fun moodOf(ratio: Float) = when {
  * 동전·반짝이·돈주머니 그림: Microsoft Fluent Emoji (MIT, licenses/FluentEmoji-MIT.txt).
  */
 @Composable
-fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit) {
-    val saved = savings.total
+fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit, assetBase: Long, onAssetBase: (Long) -> Unit) {
+    // 총자산 = 부동 + 유동. 직접 고친 금액(assetBase)은 유동에 더한다.
+    val liquid = savings.liquid + assetBase
+    val saved = savings.fixed + liquid
+    var editingAsset by remember { mutableStateOf(false) }
     val ratio = if (goal > 0) saved.coerceAtLeast(0).toFloat() / goal else 0f
     val fill by animateFloatAsState(ratio.coerceIn(0f, 1.2f), tween(900), label = "piggy")
     val mood = moodOf(ratio)
@@ -197,13 +217,16 @@ fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit) {
             }
         }
 
-        Text(
-            "${won(saved.coerceAtLeast(0))}원",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = PigDark,
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-        )
+        Text("총자산", color = Muted, fontSize = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Row(Modifier.align(Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "${won(saved.coerceAtLeast(0))}원",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = PigDark,
+            )
+            TextButton(onClick = { editingAsset = true }) { Text("✏️ 수정", color = PigDark, fontSize = 13.sp) }
+        }
         Text(
             when (mood) {
                 Mood.Hungry -> "텅텅… 배고파요 🥺"
@@ -218,7 +241,7 @@ fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit) {
         // 부동 · 유동 나눠 보기
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             SavingCell("🔒 부동 저금", savings.fixed, FixedGold, Modifier.weight(1f)) { showing = true }
-            SavingCell("💧 유동 저금", savings.liquid, LiquidBlue, Modifier.weight(1f)) { showing = false }
+            SavingCell("💧 유동 저금", liquid, LiquidBlue, Modifier.weight(1f)) { showing = false }
         }
         if (saved > 0) {
             val fixedShare = (savings.fixed.coerceAtLeast(0).toFloat() / saved).coerceIn(0f, 1f)
@@ -243,6 +266,35 @@ fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit) {
             title = if (fixed) "🔒 부동 저금 내역" else "💧 유동 저금 내역",
             entries = if (fixed) savings.fixedEntries else savings.liquidEntries,
             onDismiss = { showing = null },
+            base = if (fixed) 0 else assetBase,
+        )
+    }
+
+    if (editingAsset) {
+        var text by remember { mutableStateOf(saved.coerceAtLeast(0).toString()) }
+        AlertDialog(
+            onDismissRequest = { editingAsset = false },
+            title = { Text("총자산 수정") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it.filter(Char::isDigit).take(13) },
+                        label = { Text("지금 총자산 (원)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        visualTransformation = ThousandsTransformation,
+                        singleLine = true,
+                    )
+                    Text("부동 저금은 그대로 두고, 차이만큼 💧 유동 저금에 더하거나 빼요.", color = Muted, fontSize = 12.sp)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    text.toLongOrNull()?.let { total -> onAssetBase(total - savings.fixed - savings.liquid) }
+                    editingAsset = false
+                }) { Text("저장") }
+            },
+            dismissButton = { TextButton(onClick = { editingAsset = false }) { Text("취소") } },
         )
     }
 
