@@ -132,21 +132,31 @@ class CloudLedger(private val prefs: SharedPreferences) : LedgerRepo {
     override fun add(entry: Entry) {
         val c = code.value ?: return
         val doc = if (entry.id.isEmpty()) entriesOf(c).document() else entriesOf(c).document(entry.id)
-        doc.set(
-            mapOf(
-                "date" to entry.date,
-                "income" to entry.income,
-                "amount" to entry.amount,
-                "category" to entry.category,
-                "memo" to entry.memo,
-                "method" to entry.method,
-                "author" to entry.author,
-                "ruleId" to entry.ruleId,
-                "uid" to uid,
-                "createdAt" to FieldValue.serverTimestamp(),
-            )
-        )
+        doc.set(entry.toMap())
     }
+
+    // 서버에 이미 있으면(고친 내역 포함) 그대로 두고, 없을 때만 만든다.
+    override fun ensure(entry: Entry) {
+        val c = code.value ?: return
+        val ref = entriesOf(c).document(entry.id)
+        db.runTransaction { tx ->
+            if (!tx.get(ref).exists()) tx.set(ref, entry.toMap())
+            null
+        }
+    }
+
+    private fun Entry.toMap() = mapOf(
+        "date" to date,
+        "income" to income,
+        "amount" to amount,
+        "category" to category,
+        "memo" to memo,
+        "method" to method,
+        "author" to author,
+        "ruleId" to ruleId,
+        "uid" to uid,
+        "createdAt" to FieldValue.serverTimestamp(),
+    )
 
     override fun delete(id: String) {
         val c = code.value ?: return

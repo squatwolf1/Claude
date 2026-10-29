@@ -99,6 +99,9 @@ interface LedgerRepo {
 
     /** id 가 비어 있으면 새로 만들고, 있으면 그 id 로 덮어쓴다. */
     fun add(entry: Entry)
+
+    /** 같은 id 가 없을 때만 넣는다. 매달 고정 채우기용: 이미 있는(수정한) 내역은 건드리지 않는다. */
+    fun ensure(entry: Entry)
     fun delete(id: String)
     fun addRule(rule: Rule)
 
