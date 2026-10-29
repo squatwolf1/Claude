@@ -54,12 +54,12 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
 
     fun changeUiScale(value: Float) {
         uiScale = value
-        prefs.edit().putFloat("uiScale", value).apply()
+        prefs.edit().putFloat("uiScale", value).commit()
     }
 
     fun changeGoal(value: Long) {
         goal = value
-        prefs.edit().putLong("goal", value).apply()
+        prefs.edit().putLong("goal", value).commit()
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -129,7 +129,7 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
 
     fun changeName(value: String) {
         name = value.trim().ifEmpty { "나" }
-        prefs.edit().putString("name", name).apply()
+        prefs.edit().putString("name", name).commit()
     }
 
     fun add(income: Boolean, amount: Long, category: String, memo: String, method: String, monthly: Boolean) {

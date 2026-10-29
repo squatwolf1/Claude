@@ -70,7 +70,7 @@ class CloudLedger(private val prefs: SharedPreferences) : LedgerRepo {
     }
 
     private fun use(c: String) {
-        prefs.edit().putString(KEY, c).apply()
+        prefs.edit().putString(KEY, c).commit()
         code.value = c
         status.value = "공유 중 · 초대코드 $c"
     }

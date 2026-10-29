@@ -67,6 +67,7 @@ class LocalLedger(private val prefs: SharedPreferences) : LedgerRepo {
         }
     }
 
+    // commit 으로 바로 디스크에 쓴다. 종료할 때 프로세스를 끝내므로 apply(나중에 쓰기)는 저장 전에 사라질 수 있다.
     private fun save() {
         val arr = JSONArray()
         all.value.forEach { e ->
@@ -77,7 +78,7 @@ class LocalLedger(private val prefs: SharedPreferences) : LedgerRepo {
                     .put("method", e.method).put("author", e.author).put("ruleId", e.ruleId)
             )
         }
-        prefs.edit().putString(KEY, arr.toString()).apply()
+        prefs.edit().putString(KEY, arr.toString()).commit()
     }
 
     private fun loadRules(): List<Rule> {
@@ -112,7 +113,7 @@ class LocalLedger(private val prefs: SharedPreferences) : LedgerRepo {
                     .put("skips", JSONArray(r.skips))
             )
         }
-        prefs.edit().putString(RULES, arr.toString()).apply()
+        prefs.edit().putString(RULES, arr.toString()).commit()
     }
 
     private companion object {
