@@ -190,6 +190,23 @@ class CloudLedger(private val prefs: SharedPreferences) : LedgerRepo {
         rulesOf(c).document(ruleId).update("skips", FieldValue.arrayUnion(month))
     }
 
+    override fun updateRule(
+        ruleId: String, fromDate: String, income: Boolean, amount: Long, category: String, memo: String, method: String,
+    ) {
+        val c = code.value ?: return
+        val fields = mapOf(
+            "income" to income,
+            "amount" to amount,
+            "category" to category,
+            "memo" to memo,
+            "method" to method,
+        )
+        rulesOf(c).document(ruleId).update(fields)
+        entriesOf(c).whereEqualTo("ruleId", ruleId).get().addOnSuccessListener { snap ->
+            snap.documents.filter { (it.getString("date") ?: "") >= fromDate }.forEach { it.reference.update(fields) }
+        }
+    }
+
     override fun stop(ruleId: String, month: String) {
         val c = code.value ?: return
         rulesOf(c).document(ruleId).update("end", month)

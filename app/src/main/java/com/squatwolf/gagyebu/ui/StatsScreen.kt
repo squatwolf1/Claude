@@ -73,10 +73,7 @@ fun StatsScreen(
     month: YearMonth,
     entries: List<Entry>,
     saved: Savings,
-    goal: Long,
-    onGoal: (Long) -> Unit,
-    assetBase: Long,
-    onAssetBase: (Long) -> Unit,
+    piggyScale: Long,
     onPick: (YearMonth) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -140,7 +137,7 @@ fun StatsScreen(
                 }
             }
             // 저금통은 그래프 아래
-            item { PiggyCard(saved, goal, onGoal, assetBase, onAssetBase) }
+            item { PiggyCard(saved, piggyScale) }
         }
     }
 }

@@ -108,6 +108,12 @@ interface LedgerRepo {
     /** 그 달만 건너뛴다. */
     fun skip(ruleId: String, month: String)
 
+    /**
+     * 매달 고정 내역을 고쳤을 때: 규칙을 새 값으로 바꾸고, 이미 만들어 둔 fromDate 이후 내역도 같이 고친다.
+     * 그래야 다음 달·앱 재시작·업데이트 뒤에도 고친 값이 유지된다.
+     */
+    fun updateRule(ruleId: String, fromDate: String, income: Boolean, amount: Long, category: String, memo: String, method: String)
+
     /** 그 달부터 멈추고, 이미 만들어 둔 그 달 이후 내역도 지운다. */
     fun stop(ruleId: String, month: String)
 }
