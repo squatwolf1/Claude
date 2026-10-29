@@ -20,6 +20,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -52,6 +55,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.squatwolf.gagyebu.R
+import com.squatwolf.gagyebu.data.Entry
 import com.squatwolf.gagyebu.data.Savings
 import kotlin.math.roundToInt
 
@@ -63,12 +67,41 @@ private val Gold = Color(0xFFFFCF4A)
 private val FixedGold = Color(0xFFE0A21B)
 private val LiquidBlue = Color(0xFF5BB8C6)
 
-private val FIXED_HELP = "🔒 부동 저금이란?" to
-    "적금·예금·청약처럼 정해진 기간 동안 묶어 두어서 바로 꺼내 쓰기 어려운 돈이에요.\n\n" +
-    "지출 분류에서 '🔒 부동저금'으로 넣으면 여기에 모여요."
-private val LIQUID_HELP = "💧 유동 저금이란?" to
-    "파킹통장·비상금·생활비 통장처럼 필요하면 언제든 바로 꺼내 쓸 수 있는 돈이에요.\n\n" +
-    "지출 분류에서 '💧 유동저금'으로 넣으면 여기에 모여요."
+/** 저금 칸을 누르면 그 칸에 들어간 내역을 보여 준다. */
+@Composable
+private fun SavingListDialog(title: String, entries: List<Entry>, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            if (entries.isEmpty()) {
+                Text("아직 들어간 내역이 없어요.", color = Muted, fontSize = 15.sp)
+            } else {
+                LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                    items(entries, key = { it.id }) { e ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(e.memo.ifEmpty { e.category }, fontSize = 15.sp, maxLines = 1)
+                                Text(
+                                    listOf(e.date.replace('-', '.'), e.method, e.author).filter { it.isNotEmpty() }.joinToString(" · "),
+                                    color = Muted,
+                                    fontSize = 12.sp,
+                                )
+                            }
+                            Text(
+                                (if (e.income) "-" else "+") + won(e.amount) + "원",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (e.income) Red else PigDark,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("닫기") } },
+    )
+}
 
 @Composable
 private fun SavingCell(label: String, amount: Long, color: Color, modifier: Modifier, onHelp: () -> Unit) {
@@ -76,7 +109,7 @@ private fun SavingCell(label: String, amount: Long, color: Color, modifier: Modi
         modifier.clip(RoundedCornerShape(12.dp)).background(Color.White).clickable(onClick = onHelp).padding(10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("$label ⓘ", color = Muted, fontSize = 12.sp)
+        Text("$label ›", color = Muted, fontSize = 12.sp)
         Text("${won(amount.coerceAtLeast(0))}원", color = color, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
@@ -101,7 +134,7 @@ fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit) {
     val fill by animateFloatAsState(ratio.coerceIn(0f, 1.2f), tween(900), label = "piggy")
     val mood = moodOf(ratio)
     var editing by remember { mutableStateOf(false) }
-    var explain by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var showing by remember { mutableStateOf<Boolean?>(null) } // true 부동, false 유동
 
     Column(
         Modifier
@@ -184,8 +217,8 @@ fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit) {
         Spacer(Modifier.height(12.dp))
         // 부동 · 유동 나눠 보기
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SavingCell("🔒 부동 저금", savings.fixed, FixedGold, Modifier.weight(1f)) { explain = FIXED_HELP }
-            SavingCell("💧 유동 저금", savings.liquid, LiquidBlue, Modifier.weight(1f)) { explain = LIQUID_HELP }
+            SavingCell("🔒 부동 저금", savings.fixed, FixedGold, Modifier.weight(1f)) { showing = true }
+            SavingCell("💧 유동 저금", savings.liquid, LiquidBlue, Modifier.weight(1f)) { showing = false }
         }
         if (saved > 0) {
             val fixedShare = (savings.fixed.coerceAtLeast(0).toFloat() / saved).coerceIn(0f, 1f)
@@ -205,12 +238,11 @@ fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit) {
         Text("지출에서 🔒 부동저금 · 💧 유동저금 분류로 넣으면 여기에 모여요", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
     }
 
-    explain?.let { (title, body) ->
-        AlertDialog(
-            onDismissRequest = { explain = null },
-            title = { Text(title) },
-            text = { Text(body, fontSize = 15.sp) },
-            confirmButton = { TextButton(onClick = { explain = null }) { Text("확인") } },
+    showing?.let { fixed ->
+        SavingListDialog(
+            title = if (fixed) "🔒 부동 저금 내역" else "💧 유동 저금 내역",
+            entries = if (fixed) savings.fixedEntries else savings.liquidEntries,
+            onDismiss = { showing = null },
         )
     }
 
