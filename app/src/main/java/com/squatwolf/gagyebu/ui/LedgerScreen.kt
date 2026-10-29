@@ -4,7 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -140,7 +139,7 @@ fun LedgerScreen(vm: LedgerViewModel) {
                 }
             }
             items(dayEntries, key = { it.id }) { e ->
-                EntryCard(e, Modifier.combinedClickable(onClick = {}, onLongClick = { deleting = e }))
+                EntryCard(e, Modifier.clickable { deleting = e })
             }
         }
     }
@@ -183,7 +182,7 @@ fun LedgerScreen(vm: LedgerViewModel) {
     deleting?.let { e ->
         AlertDialog(
             onDismissRequest = { deleting = null },
-            title = { Text("삭제할까요?") },
+            title = { Text("삭제하시겠습니까?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("${emojiOf(e.category)} ${e.category} ${e.memo} ${won(e.amount)}원")
@@ -214,26 +213,41 @@ private fun monthTitle(m: YearMonth) =
 @Composable
 private fun Summary(income: Long, expense: Long) {
     val total = income - expense
-    Row(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-        Column(Modifier.weight(1f)) {
-            Row {
-                Text("수입 ", fontSize = 16.sp)
-                Text("+${won(income)}원", color = Blue, fontSize = 16.sp)
-            }
-            Spacer(Modifier.height(6.dp))
-            Row {
-                Text("지출 ", fontSize = 16.sp)
-                Text("-${won(expense)}원", color = Red, fontSize = 16.sp)
-            }
-        }
-        Row {
-            Text("합계 ", fontSize = 16.sp)
-            Text(
-                (if (total >= 0) "+" else "-") + won(kotlin.math.abs(total)) + "원",
-                color = if (total >= 0) Blue else Red,
-                fontSize = 16.sp,
-            )
-        }
+    // 수입 · 지출 · 합계를 각각 칸으로 나눠 보여 준다.
+    Row(
+        Modifier.fillMaxWidth().padding(bottom = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        SummaryCell("수입", "+${won(income)}원", Blue, Modifier.weight(1f))
+        SummaryCell("지출", "-${won(expense)}원", Red, Modifier.weight(1f))
+        SummaryCell(
+            "합계",
+            (if (total >= 0) "+" else "-") + won(kotlin.math.abs(total)) + "원",
+            if (total >= 0) Blue else Red,
+            Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun SummaryCell(label: String, amount: String, color: Color, modifier: Modifier) {
+    Column(
+        modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.White)
+            .padding(horizontal = 10.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(label, color = Muted, fontSize = 13.sp)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            amount,
+            color = color,
+            fontSize = if (amount.length > 11) 13.sp else 15.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            softWrap = false,
+        )
     }
 }
 
