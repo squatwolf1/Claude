@@ -306,7 +306,7 @@ private fun Calendar(month: YearMonth, selected: LocalDate, byDate: Map<String, 
             for (i in 0 until 7) {
                 val day = week.getOrNull(i)
                 if (day == null) {
-                    Spacer(Modifier.weight(1f).height(88.dp))
+                    Spacer(Modifier.weight(1f).height(96.dp))
                     continue
                 }
                 val list = byDate[day.toString()].orEmpty()
@@ -317,7 +317,7 @@ private fun Calendar(month: YearMonth, selected: LocalDate, byDate: Map<String, 
                 Column(
                     Modifier
                         .weight(1f)
-                        .height(88.dp)
+                        .height(96.dp)
                         .padding(2.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(if (day == selected) Selected else Color.Transparent)
