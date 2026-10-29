@@ -44,7 +44,7 @@ import java.time.LocalDate
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
-private val expenseCategories = listOf("식비", "교통", "쇼핑", "생활", "공과금", "대출", "보험", "유류", "병원", "저금", "기타")
+private val expenseCategories = listOf("식비", "교통", "쇼핑", "생활", "공과금", "대출", "보험", "유류", "병원", "부동저금", "유동저금", "기타")
 private val incomeCategories = listOf("월급", "용돈", "부수입", "기타")
 private val methods = listOf("현금", "카드", "계좌이체")
 

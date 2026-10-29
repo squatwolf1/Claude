@@ -7,6 +7,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -56,7 +58,7 @@ val Ink = Color(0xFF222222)
 val Muted = Color(0xFFAAAAAA)
 val Blue = Color(0xFF5B8DEF)
 val Red = Color(0xFFE5655B)
-val Fixed = Color(0xFF8E7CC3)
+val Fixed = Color(0xFFF08C84) // 고정비: 연한 빨강
 private val Selected = Color(0xFFE4E4E4)
 
 fun won(v: Long) = "%,d".format(v)
@@ -323,7 +325,7 @@ private fun Calendar(month: YearMonth, selected: LocalDate, byDate: Map<String, 
                     Text(
                         "${day.dayOfMonth}",
                         fontSize = 16.sp,
-                        fontWeight = if (day == today) FontWeight.Bold else FontWeight.Normal,
+                        fontWeight = if (day == today) FontWeight.ExtraBold else FontWeight.Bold,
                         color = Ink,
                     )
                     // 그날 수입 합계(파랑), 지출 합계(빨강), 고정비(보라 띠)
@@ -344,28 +346,28 @@ private fun DayAmount(text: String, color: Color) {
         text,
         color = color,
         fontSize = if (text.length > 8) 9.sp else 11.sp,
+        fontWeight = FontWeight.Bold,
         maxLines = 1,
         softWrap = false,
         modifier = Modifier.padding(top = 2.dp),
     )
 }
 
-/** 고정비는 보라색 띠에 🔁 표시로 일반 지출과 구분한다. */
+/** 고정비는 연한 빨강 글씨에 가는 밑줄로 일반 지출과 구분한다. */
 @Composable
 private fun FixedAmount(amount: Long) {
-    val text = "🔁${won(amount)}"
-    Text(
-        text,
-        color = Color.White,
-        fontSize = if (text.length > 8) 8.sp else 10.sp,
-        maxLines = 1,
-        softWrap = false,
-        modifier = Modifier
-            .padding(top = 2.dp)
-            .clip(RoundedCornerShape(6.dp))
-            .background(Fixed)
-            .padding(horizontal = 3.dp, vertical = 1.dp),
-    )
+    val text = "-${won(amount)}"
+    Column(Modifier.padding(top = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text,
+            color = Fixed,
+            fontSize = if (text.length > 8) 9.sp else 11.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            softWrap = false,
+        )
+        Box(Modifier.width(18.dp).height(1.5.dp).clip(RoundedCornerShape(1.dp)).background(Fixed))
+    }
 }
 
 @Composable

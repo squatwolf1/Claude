@@ -9,11 +9,13 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -49,12 +51,27 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.squatwolf.gagyebu.R
+import com.squatwolf.gagyebu.data.Savings
 import kotlin.math.roundToInt
 
 private val PigPink = Color(0xFFF8A5C2)
 private val PigDark = Color(0xFFE77FA5)
 private val PigLight = Color(0xFFFFC9DC)
 private val Gold = Color(0xFFFFCF4A)
+
+private val FixedGold = Color(0xFFE0A21B)
+private val LiquidBlue = Color(0xFF5BB8C6)
+
+@Composable
+private fun SavingCell(label: String, amount: Long, color: Color, modifier: Modifier) {
+    Column(
+        modifier.clip(RoundedCornerShape(12.dp)).background(Color.White).padding(10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(label, color = Muted, fontSize = 12.sp)
+        Text("${won(amount.coerceAtLeast(0))}원", color = color, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+    }
+}
 
 private enum class Mood { Hungry, Meh, Happy, Full }
 
@@ -70,7 +87,8 @@ private fun moodOf(ratio: Float) = when {
  * 동전·반짝이·돈주머니 그림: Microsoft Fluent Emoji (MIT, licenses/FluentEmoji-MIT.txt).
  */
 @Composable
-fun PiggyCard(saved: Long, goal: Long, onGoal: (Long) -> Unit) {
+fun PiggyCard(savings: Savings, goal: Long, onGoal: (Long) -> Unit) {
+    val saved = savings.total
     val ratio = if (goal > 0) saved.coerceAtLeast(0).toFloat() / goal else 0f
     val fill by animateFloatAsState(ratio.coerceIn(0f, 1.2f), tween(900), label = "piggy")
     val mood = moodOf(ratio)
@@ -155,6 +173,19 @@ fun PiggyCard(saved: Long, goal: Long, onGoal: (Long) -> Unit) {
             modifier = Modifier.align(Alignment.CenterHorizontally),
         )
         Spacer(Modifier.height(12.dp))
+        // 부동 · 유동 나눠 보기
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SavingCell("🔒 부동 저금", savings.fixed, FixedGold, Modifier.weight(1f))
+            SavingCell("💧 유동 저금", savings.liquid, LiquidBlue, Modifier.weight(1f))
+        }
+        if (saved > 0) {
+            val fixedShare = (savings.fixed.coerceAtLeast(0).toFloat() / saved).coerceIn(0f, 1f)
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp).height(8.dp).clip(CircleShape)) {
+                if (fixedShare > 0f) Box(Modifier.weight(fixedShare).fillMaxHeight().background(FixedGold))
+                if (fixedShare < 1f) Box(Modifier.weight(1f - fixedShare).fillMaxHeight().background(LiquidBlue))
+            }
+        }
+        Spacer(Modifier.height(12.dp))
         Box(Modifier.fillMaxWidth().height(14.dp).clip(CircleShape).background(PigLight)) {
             Box(Modifier.fillMaxWidth(ratio.coerceIn(0f, 1f)).height(14.dp).clip(CircleShape).background(Gold))
         }
@@ -162,7 +193,7 @@ fun PiggyCard(saved: Long, goal: Long, onGoal: (Long) -> Unit) {
             Text("목표 ${won(goal)}원", color = Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
             Text("${(ratio * 100).roundToInt()}%", color = PigDark, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
-        Text("지출에서 🐷 저금 분류로 넣으면 여기에 모여요", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+        Text("지출에서 🔒 부동저금 · 💧 유동저금 분류로 넣으면 여기에 모여요", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
     }
 
     if (editing) {

@@ -4,8 +4,26 @@ import java.time.YearMonth
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
-/** 이 분류로 적은 지출은 저금통에 모인다. */
-const val SAVING_CATEGORY = "저금"
+/** 부동저금: 적금·예금처럼 묶어 둔 돈. 유동저금: 언제든 꺼내 쓸 수 있는 돈. */
+const val FIXED_SAVING = "부동저금"
+const val LIQUID_SAVING = "유동저금"
+
+/** 이 분류로 적은 지출은 저금통에 모인다. 예전 '저금'은 유동으로 친다. */
+val SAVING_CATEGORIES = setOf(FIXED_SAVING, LIQUID_SAVING, "저금")
+
+/** 저금통 합계. 넣은 지출 - 꺼낸 수입. */
+data class Savings(val fixed: Long = 0, val liquid: Long = 0) {
+    val total get() = fixed + liquid
+
+    companion object {
+        fun of(entries: List<Entry>): Savings {
+            fun sum(list: List<Entry>) = list.sumOf { if (it.income) -it.amount else it.amount }
+            val saving = entries.filter { it.category in SAVING_CATEGORIES }
+            val (fixed, liquid) = saving.partition { it.category == FIXED_SAVING }
+            return Savings(sum(fixed), sum(liquid))
+        }
+    }
+}
 
 /** 내역 하나. date 는 "2026-10-27" 형식, amount 는 항상 양수. ruleId 는 매달 고정에서 만든 내역일 때만 있다. */
 data class Entry(
@@ -63,8 +81,8 @@ interface LedgerRepo {
     val status: StateFlow<String>
     val rules: Flow<List<Rule>>
 
-    /** 지금까지 저금 분류로 넣은 돈(넣은 지출 - 꺼낸 수입). */
-    val saved: Flow<Long>
+    /** 지금까지 저금 분류로 넣은 돈(부동·유동). */
+    val saved: Flow<Savings>
     fun entries(month: YearMonth): Flow<List<Entry>>
 
     /** id 가 비어 있으면 새로 만들고, 있으면 그 id 로 덮어쓴다. */
