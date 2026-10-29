@@ -6,7 +6,6 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
-import com.squatwolf.gagyebu.AppExit
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -78,7 +77,6 @@ object Updater {
     /** 설치 화면을 띄운다. 처음이면 '이 앱에서 설치 허용' 설정 화면으로 보내고 false. */
     fun install(context: Context, file: File): Boolean {
         if (!context.packageManager.canRequestPackageInstalls()) {
-            AppExit.leavingForExternal = true
             context.startActivity(
                 Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -86,7 +84,6 @@ object Updater {
             return false
         }
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.updates", file)
-        AppExit.leavingForExternal = true
         context.startActivity(
             Intent(Intent.ACTION_VIEW)
                 .setDataAndType(uri, "application/vnd.android.package-archive")

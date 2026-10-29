@@ -1,5 +1,6 @@
 package com.squatwolf.gagyebu.ui
 
+import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -38,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -72,6 +74,21 @@ fun LedgerScreen(vm: LedgerViewModel) {
     val income = entries.filter { it.income }.sumOf { it.amount }
     val expense = entries.filter { !it.income }.sumOf { it.amount }
     val dayEntries = byDate[vm.selected.toString()].orEmpty()
+
+    // 첫 화면에서 뒤로 가기 → 종료 확인
+    var exiting by remember { mutableStateOf(false) }
+    BackHandler(enabled = !stats) { exiting = true }
+    if (exiting) {
+        val activity = LocalContext.current as? Activity
+        AlertDialog(
+            onDismissRequest = { exiting = false },
+            title = { Text("종료하시겠습니까?") },
+            confirmButton = {
+                TextButton(onClick = { activity?.finishAndRemoveTask() }) { Text("종료", color = Red) }
+            },
+            dismissButton = { TextButton(onClick = { exiting = false }) { Text("취소") } },
+        )
+    }
 
     if (stats) {
         BackHandler { stats = false }
