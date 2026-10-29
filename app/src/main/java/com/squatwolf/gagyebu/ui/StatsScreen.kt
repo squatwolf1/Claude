@@ -2,6 +2,8 @@ package com.squatwolf.gagyebu.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -73,7 +75,7 @@ fun StatsScreen(
     saved: Savings,
     goal: Long,
     onGoal: (Long) -> Unit,
-    onMove: (Long) -> Unit,
+    onPick: (YearMonth) -> Unit,
     onBack: () -> Unit,
 ) {
     // 저금은 쓴 돈이 아니라 모은 돈이라 지출 통계에서 뺀다.
@@ -90,6 +92,11 @@ fun StatsScreen(
         (1..month.lengthOfMonth()).map { d -> byDay[d].orEmpty().sumOf { it.amount } }
     }
 
+    var picking by remember { mutableStateOf(false) }
+    if (picking) {
+        MonthPickerDialog(month, onPick = { onPick(it); picking = false }, onDismiss = { picking = false })
+    }
+
     Scaffold(containerColor = Paper) { pad ->
         LazyColumn(
             Modifier.padding(pad).fillMaxSize(),
@@ -98,9 +105,13 @@ fun StatsScreen(
             item {
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "뒤로") }
-                    IconButton(onClick = { onMove(-1) }) { Icon(Icons.Default.KeyboardArrowLeft, "이전 달") }
-                    Text("지출 통계", Modifier.weight(1f), fontSize = 20.sp, textAlign = TextAlign.Center)
-                    IconButton(onClick = { onMove(1) }) { Icon(Icons.Default.KeyboardArrowRight, "다음 달") }
+                    Text(
+                        "${month.year}년 ${month.monthValue}월 ▾",
+                        Modifier.weight(1f).clickable { picking = true }.padding(vertical = 8.dp),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                    )
                     Spacer(Modifier.width(48.dp))
                 }
             }
