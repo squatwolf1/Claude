@@ -154,8 +154,8 @@ fun LedgerScreen(vm: LedgerViewModel) {
                 }
                 Spacer(Modifier.height(8.dp))
             } }
-            item { Column { Calendar(vm.month, vm.selected, byDate) { vm.selected = it } } }
             item { Summary(income, expense) }
+            item { Column { Calendar(vm.month, vm.selected, byDate) { vm.selected = it } } }
             if (dayEntries.isEmpty()) {
                 item {
                     Text(
@@ -257,9 +257,9 @@ private fun monthTitle(m: YearMonth) =
 @Composable
 private fun Summary(income: Long, expense: Long) {
     val total = income - expense
-    // 수입 · 지출 · 합계를 각각 칸으로 나눠 보여 준다.
+    // 달력 위에 수입 · 지출 · 합계를 각각 색 테두리 칸으로 나눠 보여 준다.
     Row(
-        Modifier.fillMaxWidth().padding(bottom = 16.dp),
+        Modifier.fillMaxWidth().padding(bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         SummaryCell("수입", "+${won(income)}원", Blue, Modifier.weight(1f))
@@ -279,6 +279,7 @@ private fun SummaryCell(label: String, amount: String, color: Color, modifier: M
         modifier
             .clip(RoundedCornerShape(14.dp))
             .background(Color.White)
+            .border(1.5.dp, color, RoundedCornerShape(14.dp))
             .padding(horizontal = 10.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
