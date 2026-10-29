@@ -11,16 +11,19 @@ const val LIQUID_SAVING = "유동저금"
 /** 이 분류로 적은 지출은 저금통에 모인다. 예전 '저금'은 유동으로 친다. */
 val SAVING_CATEGORIES = setOf(FIXED_SAVING, LIQUID_SAVING, "저금")
 
-/** 저금통 합계. 넣은 지출 - 꺼낸 수입. */
-data class Savings(val fixed: Long = 0, val liquid: Long = 0) {
+/** 저금통에 들어간 내역과 합계. 합계는 넣은 지출 - 꺼낸 수입. 내역은 최근 날짜부터. */
+data class Savings(val fixedEntries: List<Entry> = emptyList(), val liquidEntries: List<Entry> = emptyList()) {
+    val fixed get() = sum(fixedEntries)
+    val liquid get() = sum(liquidEntries)
     val total get() = fixed + liquid
+
+    private fun sum(list: List<Entry>) = list.sumOf { if (it.income) -it.amount else it.amount }
 
     companion object {
         fun of(entries: List<Entry>): Savings {
-            fun sum(list: List<Entry>) = list.sumOf { if (it.income) -it.amount else it.amount }
-            val saving = entries.filter { it.category in SAVING_CATEGORIES }
+            val saving = entries.filter { it.category in SAVING_CATEGORIES }.sortedByDescending { it.date }
             val (fixed, liquid) = saving.partition { it.category == FIXED_SAVING }
-            return Savings(sum(fixed), sum(liquid))
+            return Savings(fixed, liquid)
         }
     }
 }
