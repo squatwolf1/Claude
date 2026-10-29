@@ -30,7 +30,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -40,9 +44,31 @@ import java.time.LocalDate
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
-private val expenseCategories = listOf("식비", "교통", "쇼핑", "생활", "공과금", "대출", "유류", "병원", "저금", "기타")
+private val expenseCategories = listOf("식비", "교통", "쇼핑", "생활", "공과금", "대출", "보험", "유류", "병원", "저금", "기타")
 private val incomeCategories = listOf("월급", "용돈", "부수입", "기타")
 private val methods = listOf("현금", "카드", "계좌이체")
+
+/** 숫자만 저장하고 화면에는 1,234,000 처럼 세 자리마다 쉼표를 찍어 보여 준다. */
+internal object ThousandsTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val digits = text.text
+        val n = digits.length
+        fun commaBefore(i: Int) = i > 0 && (n - i) % 3 == 0
+        val out = buildString {
+            digits.forEachIndexed { i, c ->
+                if (commaBefore(i)) append(',')
+                append(c)
+            }
+        }
+        val mapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int) = offset + (1 until offset).count { commaBefore(it) }
+
+            override fun transformedToOriginal(offset: Int) =
+                (0..n).last { originalToTransformed(it) <= offset }
+        }
+        return TransformedText(AnnotatedString(out), mapping)
+    }
+}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -80,6 +106,7 @@ fun AddEntryDialog(
                     onValueChange = { amount = it.filter(Char::isDigit).take(12) },
                     label = { Text("금액 (원)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    visualTransformation = ThousandsTransformation,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )

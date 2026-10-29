@@ -176,6 +176,7 @@ fun PiggyCard(saved: Long, goal: Long, onGoal: (Long) -> Unit) {
                     onValueChange = { text = it.filter(Char::isDigit).take(12) },
                     label = { Text("목표 금액 (원)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    visualTransformation = ThousandsTransformation,
                     singleLine = true,
                 )
             },
