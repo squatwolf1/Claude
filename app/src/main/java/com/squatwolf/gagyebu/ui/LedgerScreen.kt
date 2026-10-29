@@ -4,6 +4,7 @@ import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -325,6 +326,8 @@ private fun Calendar(month: YearMonth, selected: LocalDate, byDate: Map<String, 
                         .padding(2.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(if (day == selected) Selected else Color.Transparent)
+                        // 오늘은 진한 네모 테두리로 한눈에 보이게
+                        .then(if (day == today) Modifier.border(2.dp, Ink, RoundedCornerShape(12.dp)) else Modifier)
                         .clickable { onPick(day) }
                         .padding(top = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
