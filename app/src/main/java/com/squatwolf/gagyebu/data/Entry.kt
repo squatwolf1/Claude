@@ -1,5 +1,6 @@
 package com.squatwolf.gagyebu.data
 
+import java.time.LocalDate
 import java.time.YearMonth
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,8 +21,12 @@ data class Savings(val fixedEntries: List<Entry> = emptyList(), val liquidEntrie
     private fun sum(list: List<Entry>) = list.sumOf { if (it.income) -it.amount else it.amount }
 
     companion object {
-        fun of(entries: List<Entry>): Savings {
-            val saving = entries.filter { it.category in SAVING_CATEGORIES }.sortedByDescending { it.date }
+        /** 오늘까지 들어간 것만 센다. 미래 날짜(예: 미리 채워진 매달 고정)는 빼고. */
+        fun of(entries: List<Entry>, today: LocalDate = LocalDate.now()): Savings {
+            val until = today.toString()
+            val saving = entries
+                .filter { it.category in SAVING_CATEGORIES && it.date <= until }
+                .sortedByDescending { it.date }
             val (fixed, liquid) = saving.partition { it.category == FIXED_SAVING }
             return Savings(fixed, liquid)
         }
