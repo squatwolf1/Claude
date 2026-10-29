@@ -60,6 +60,7 @@ val Muted = Color(0xFFAAAAAA)
 val Blue = Color(0xFF5B8DEF)
 val Red = Color(0xFFE5655B)
 val Fixed = Color(0xFFF08C84) // 고정비: 연한 빨강
+val FixedIn = Color(0xFF8DB4F2) // 고정 수입: 연한 파랑
 private val Selected = Color(0xFFE4E4E4)
 
 fun won(v: Long) = "%,d".format(v)
@@ -305,17 +306,18 @@ private fun Calendar(month: YearMonth, selected: LocalDate, byDate: Map<String, 
             for (i in 0 until 7) {
                 val day = week.getOrNull(i)
                 if (day == null) {
-                    Spacer(Modifier.weight(1f).height(88.dp))
+                    Spacer(Modifier.weight(1f).height(96.dp))
                     continue
                 }
                 val list = byDate[day.toString()].orEmpty()
-                val inc = list.filter { it.income }.sumOf { it.amount }
+                val inc = list.filter { it.income && !it.isFixedIncome() }.sumOf { it.amount }
+                val fixedIn = list.filter { it.isFixedIncome() }.sumOf { it.amount }
                 val fixed = list.filter { it.isFixedCost() }.sumOf { it.amount }
                 val exp = list.filter { !it.income && !it.isFixedCost() }.sumOf { it.amount }
                 Column(
                     Modifier
                         .weight(1f)
-                        .height(88.dp)
+                        .height(96.dp)
                         .padding(2.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(if (day == selected) Selected else Color.Transparent)
@@ -332,7 +334,8 @@ private fun Calendar(month: YearMonth, selected: LocalDate, byDate: Map<String, 
                     // 그날 수입 합계(파랑), 지출 합계(빨강), 고정비(보라 띠)
                     if (inc > 0) DayAmount("+${won(inc)}", Blue)
                     if (exp > 0) DayAmount("-${won(exp)}", Red)
-                    if (fixed > 0) FixedAmount(fixed)
+                    if (fixedIn > 0) FixedAmount("+${won(fixedIn)}", FixedIn)
+                    if (fixed > 0) FixedAmount("-${won(fixed)}", Fixed)
                 }
             }
         }
@@ -365,10 +368,9 @@ private fun FitText(text: String, color: Color, maxSp: Float, modifier: Modifier
     )
 }
 
-/** 고정비는 연한 빨강 상자에 흰 글씨로, 위아래 여백 없이 얇게 표시한다. */
+/** 고정비(연한 빨강)·고정 수입(연한 파랑)은 상자에 흰 글씨로, 위아래 여백 없이 얇게 표시한다. */
 @Composable
-private fun FixedAmount(amount: Long) {
-    val text = "-${won(amount)}"
+private fun FixedAmount(text: String, color: Color) {
     FitText(
         text,
         Color.White,
@@ -376,7 +378,7 @@ private fun FixedAmount(amount: Long) {
         Modifier
             .padding(top = 2.dp)
             .clip(RoundedCornerShape(3.dp))
-            .background(Fixed)
+            .background(color)
             .padding(horizontal = 3.dp),
     )
 }
@@ -396,7 +398,7 @@ private fun EntryCard(e: Entry, modifier: Modifier) {
         Text("${emojiOf(e.category)} ${e.category}", fontSize = 16.sp, modifier = Modifier.weight(0.9f))
         Column(Modifier.weight(1.4f)) {
             Text(e.memo.ifEmpty { "-" }, fontSize = 15.sp, maxLines = 1)
-            Text(listOf(if (e.ruleId.isNotEmpty()) "🔁 매달" else if (e.isFixedCost()) "고정비" else "", e.method, e.author).filter { it.isNotEmpty() }.joinToString(" · "), color = Muted, fontSize = 12.sp)
+            Text(listOf(if (e.isFixedIncome()) "🔁 고정 수입" else if (e.ruleId.isNotEmpty()) "🔁 매달" else if (e.isFixedCost()) "고정비" else "", e.method, e.author).filter { it.isNotEmpty() }.joinToString(" · "), color = Muted, fontSize = 12.sp)
         }
         Text(
             (if (e.income) "+" else "-") + won(e.amount) + "원",

@@ -29,3 +29,6 @@ fun emojiOf(category: String) = when (category) {
 val fixedCategories = setOf("공과금", "대출", "보험")
 
 fun Entry.isFixedCost() = !income && (ruleId.isNotEmpty() || category in fixedCategories)
+
+/** 매달 고정으로 들어오는 수입(월급 등). */
+fun Entry.isFixedIncome() = income && ruleId.isNotEmpty()
