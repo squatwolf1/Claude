@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -103,7 +104,7 @@ fun LedgerScreen(vm: LedgerViewModel) {
             saved = saved,
             goal = vm.goal,
             onGoal = vm::changeGoal,
-            onMove = vm::moveMonth,
+            onPick = vm::pickMonth,
             onBack = { stats = false },
         )
         return
@@ -341,15 +342,26 @@ private fun Calendar(month: YearMonth, selected: LocalDate, byDate: Map<String, 
 
 @Composable
 private fun DayAmount(text: String, color: Color) {
-    // 칸이 좁아서 백만 원 단위부터는 글자를 줄인다.
+    FitText(text, color, 11f, Modifier.padding(top = 2.dp))
+}
+
+/** 칸 너비에 다 들어갈 때까지 글자를 줄여서 한 줄로 보여 준다. 잘리지 않게 하려는 것. */
+@Composable
+private fun FitText(text: String, color: Color, maxSp: Float, modifier: Modifier = Modifier) {
+    var size by remember(text) { mutableStateOf(maxSp) }
+    var fitted by remember(text) { mutableStateOf(false) }
     Text(
         text,
         color = color,
-        fontSize = if (text.length > 8) 9.sp else 11.sp,
+        fontSize = size.sp,
+        lineHeight = (size + 1).sp,
         fontWeight = FontWeight.Bold,
         maxLines = 1,
         softWrap = false,
-        modifier = Modifier.padding(top = 2.dp),
+        modifier = modifier.drawWithContent { if (fitted) drawContent() },
+        onTextLayout = { result ->
+            if (result.didOverflowWidth && size > 6f) size *= 0.9f else fitted = true
+        },
     )
 }
 
@@ -357,15 +369,11 @@ private fun DayAmount(text: String, color: Color) {
 @Composable
 private fun FixedAmount(amount: Long) {
     val text = "-${won(amount)}"
-    Text(
+    FitText(
         text,
-        color = Color.White,
-        fontSize = if (text.length > 8) 9.sp else 10.sp,
-        fontWeight = FontWeight.Bold,
-        lineHeight = 11.sp,
-        maxLines = 1,
-        softWrap = false,
-        modifier = Modifier
+        Color.White,
+        10f,
+        Modifier
             .padding(top = 2.dp)
             .clip(RoundedCornerShape(3.dp))
             .background(Fixed)

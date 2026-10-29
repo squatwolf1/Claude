@@ -117,6 +117,11 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun pickMonth(value: YearMonth) {
+        month = value
+        selected = if (month == YearMonth.now()) LocalDate.now() else month.atDay(1)
+    }
+
     fun moveMonth(delta: Long) {
         month = month.plusMonths(delta)
         selected = if (month == YearMonth.now()) LocalDate.now() else month.atDay(1)
