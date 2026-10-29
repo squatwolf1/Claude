@@ -58,7 +58,7 @@ val Ink = Color(0xFF222222)
 val Muted = Color(0xFFAAAAAA)
 val Blue = Color(0xFF5B8DEF)
 val Red = Color(0xFFE5655B)
-val Fixed = Color(0xFF8E7CC3)
+val Fixed = Color(0xFFF08C84) // 고정비: 연한 빨강
 private val Selected = Color(0xFFE4E4E4)
 
 fun won(v: Long) = "%,d".format(v)
@@ -353,7 +353,7 @@ private fun DayAmount(text: String, color: Color) {
     )
 }
 
-/** 고정비는 보라색 글씨에 가는 밑줄로 일반 지출과 구분한다. */
+/** 고정비는 연한 빨강 글씨에 가는 밑줄로 일반 지출과 구분한다. */
 @Composable
 private fun FixedAmount(amount: Long) {
     val text = "-${won(amount)}"
