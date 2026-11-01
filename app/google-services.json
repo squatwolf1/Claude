@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "594220763735",
+    "project_id": "gagyebu-4b856",
+    "storage_bucket": "gagyebu-4b856.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:594220763735:android:09958bd2973d5f15f8f112",
+        "android_client_info": {
+          "package_name": "com.squatwolf.gagyebu"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_jQpfANAZcObhLKbuJqn-FUHRDZZ_TCA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
