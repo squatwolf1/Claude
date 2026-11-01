@@ -19,6 +19,10 @@ class LocalLedger(private val prefs: SharedPreferences) : LedgerRepo {
     override val saved: Flow<Savings> = all.map { Savings.of(it) }
     override val allEntries: Flow<List<Entry>> = all
 
+    /** 공유로 옮길 때 쓰는, 이 폰에 저장된 내역과 매달 고정 규칙. */
+    val savedEntries: List<Entry> get() = all.value
+    val savedRules: List<Rule> get() = ruleList.value
+
     override fun entries(month: YearMonth): Flow<List<Entry>> =
         all.map { list -> list.filter { it.date.startsWith(month.toString()) } }
 

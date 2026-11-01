@@ -5,6 +5,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.WriteBatch
 import java.time.YearMonth
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
@@ -35,9 +36,33 @@ class CloudLedger(private val prefs: SharedPreferences) : LedgerRepo {
         try {
             if (auth.currentUser == null) auth.signInAnonymously().await()
             use(prefs.getString(KEY, null) ?: create())
+            moveLocal()
         } catch (e: Exception) {
             status.value = "연결 실패: ${e.message}"
         }
+    }
+
+    /**
+     * 혼자 쓰기 모드에서 이 폰에 쌓인 내역·매달 고정을 처음 한 번 지금 가계부로 올린다.
+     * id 를 그대로 써서 여러 번 올려도 겹치지 않는다. 다 올라간 뒤에만 표시를 남긴다.
+     */
+    private suspend fun moveLocal() {
+        if (prefs.getBoolean(MOVED, false)) return
+        val c = code.value ?: return
+        val local = LocalLedger(prefs)
+        val writes = local.savedEntries.map { e -> { b: WriteBatch -> b.set(entriesOf(c).document(e.id), e.toMap()) } } +
+            local.savedRules.map { r -> { b: WriteBatch -> b.set(rulesOf(c).document(r.id), r.toMap()) } }
+        if (writes.isNotEmpty()) {
+            status.value = "이 폰 내역을 공유 가계부로 옮기는 중…"
+            // 한 번에 500개까지라 나눠서 보낸다.
+            writes.chunked(400).forEach { part ->
+                val batch = db.batch()
+                part.forEach { it(batch) }
+                batch.commit().await()
+            }
+            use(c)
+        }
+        prefs.edit().putBoolean(MOVED, true).commit()
     }
 
     /** 상대의 초대코드로 들어간다. 실패하면 이유를 돌려준다. */
@@ -183,21 +208,21 @@ class CloudLedger(private val prefs: SharedPreferences) : LedgerRepo {
 
     override fun addRule(rule: Rule) {
         val c = code.value ?: return
-        rulesOf(c).document(rule.id).set(
-            mapOf(
-                "day" to rule.day,
-                "income" to rule.income,
-                "amount" to rule.amount,
-                "category" to rule.category,
-                "memo" to rule.memo,
-                "method" to rule.method,
-                "author" to rule.author,
-                "start" to rule.start,
-                "end" to rule.end,
-                "skips" to rule.skips,
-            )
-        )
+        rulesOf(c).document(rule.id).set(rule.toMap())
     }
+
+    private fun Rule.toMap() = mapOf(
+        "day" to day,
+        "income" to income,
+        "amount" to amount,
+        "category" to category,
+        "memo" to memo,
+        "method" to method,
+        "author" to author,
+        "start" to start,
+        "end" to end,
+        "skips" to skips,
+    )
 
     override fun skip(ruleId: String, month: String) {
         val c = code.value ?: return
@@ -262,6 +287,7 @@ class CloudLedger(private val prefs: SharedPreferences) : LedgerRepo {
     private companion object {
         const val LEDGERS = "ledgers"
         const val KEY = "ledger_code"
+        const val MOVED = "local_moved"
 
         // 헷갈리는 글자(0, O, 1, I)는 뺐다.
         const val ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
