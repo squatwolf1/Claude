@@ -16,6 +16,7 @@ import com.squatwolf.gagyebu.data.LocalLedger
 import com.squatwolf.gagyebu.data.Rule
 import com.squatwolf.gagyebu.data.Savings
 import com.squatwolf.gagyebu.data.Updater
+import com.squatwolf.gagyebu.ui.installmentPlan
 import java.time.LocalDate
 import java.time.YearMonth
 import java.util.UUID
@@ -162,6 +163,19 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
             )
         } else {
             repo.add(Entry("", selected.toString(), income, amount, category, memo, method, name))
+        }
+    }
+
+    /**
+     * 할부: 원금을 개월 수로 나눠 다음 달부터 매월 같은 날에 지출로 넣는다.
+     * 31일처럼 없는 날은 그 달 마지막 날로. 메모 뒤에 (1/12) 처럼 회차를 붙인다.
+     */
+    fun addInstallment(principal: Long, months: Int, category: String, memo: String, method: String) {
+        val id = UUID.randomUUID().toString().take(8)
+        val title = memo.ifEmpty { category }
+        installmentPlan(principal, months).forEachIndexed { i, amount ->
+            val date = selected.plusMonths(i + 1L)
+            repo.add(Entry("i_${id}_${i + 1}", date.toString(), false, amount, category, "$title 할부 (${i + 1}/$months)", method, name))
         }
     }
 

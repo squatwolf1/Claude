@@ -28,7 +28,10 @@ fun emojiOf(category: String) = when (category) {
 /** 고정비로 보는 분류. 매달 고정 내역도 고정비다. */
 val fixedCategories = setOf("공과금", "대출", "보험")
 
-fun Entry.isFixedCost() = !income && (ruleId.isNotEmpty() || category in fixedCategories)
+fun Entry.isFixedCost() = !income && (ruleId.isNotEmpty() || isInstallment() || category in fixedCategories)
+
+/** 할부로 나눠 넣은 내역. id 가 i_ 로 시작한다. */
+fun Entry.isInstallment() = id.startsWith("i_")
 
 /** 매달 고정으로 들어오는 수입(월급 등). */
 fun Entry.isFixedIncome() = income && ruleId.isNotEmpty()
