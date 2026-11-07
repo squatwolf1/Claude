@@ -75,7 +75,7 @@ internal object ThousandsTransformation : VisualTransformation {
 fun AddEntryDialog(
     date: LocalDate,
     onDismiss: () -> Unit,
-    onSave: (income: Boolean, amount: Long, category: String, memo: String, method: String, monthly: Boolean) -> Unit,
+    onSave: (income: Boolean, amount: Long, category: String, memo: String, method: String, monthly: Boolean, installMonths: Int) -> Unit,
     editing: Entry? = null,
     onDelete: (() -> Unit)? = null,
 ) {
@@ -86,6 +86,9 @@ fun AddEntryDialog(
     var memo by remember { mutableStateOf(editing?.memo ?: "") }
     var method by remember { mutableStateOf(editing?.method?.ifEmpty { null } ?: methods[0]) }
     var monthly by remember { mutableStateOf(false) }
+    var installment by remember { mutableStateOf(false) }
+    var months by remember { mutableStateOf("") }
+    val monthCount = months.toIntOrNull() ?: 0
     val value = amount.toLongOrNull() ?: 0
 
     AlertDialog(
@@ -104,7 +107,7 @@ fun AddEntryDialog(
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { amount = it.filter(Char::isDigit).take(12) },
-                    label = { Text("금액 (원)") },
+                    label = { Text(if (installment) "할부 원금 (원)" else "금액 (원)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     visualTransformation = ThousandsTransformation,
                     singleLine = true,
@@ -129,8 +132,46 @@ fun AddEntryDialog(
                         FilterChip(selected = method == it, onClick = { method = it }, label = { Text(it) })
                     }
                 }
+                // 새 지출은 할부로 나눠 넣을 수 있다. 원금을 개월 수로 나눠 다음 달부터 같은 날에 들어간다.
+                if (editing == null && !income) {
+                    Row(
+                        Modifier.fillMaxWidth().clickable { installment = !installment; if (installment) monthly = false },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = installment, onCheckedChange = { installment = it; if (it) monthly = false })
+                        Column {
+                            Text("💳 할부", fontWeight = FontWeight.Bold)
+                            Text("다음 달부터 매월 ${date.dayOfMonth}일에 할부금이 들어가요", fontSize = 12.sp, color = Muted)
+                        }
+                    }
+                    if (installment) {
+                        OutlinedTextField(
+                            value = months,
+                            onValueChange = { months = it.filter(Char::isDigit).take(2) },
+                            label = { Text("개월 수 (2~60)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        if (value > 0 && monthCount in 2..60) {
+                            val plan = installmentPlan(value, monthCount)
+                            val first = date.plusMonths(1)
+                            val last = date.plusMonths(monthCount.toLong())
+                            Text(
+                                "매월 ${won(plan.last())}원 × ${monthCount}개월" +
+                                    (if (plan.first() != plan.last()) " (첫 달 ${won(plan.first())}원)" else "") +
+                                    "\n${first.year}.${first.monthValue} ~ ${last.year}.${last.monthValue}",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Red,
+                            )
+                        }
+                    }
+                }
                 // 새 내역이나 일반 내역 수정에서는 매달 고정으로 바꿀 수 있다.
-                if (editing == null || editing.ruleId.isEmpty()) {
+                if (installment) {
+                    // 할부와 매달 고정은 같이 쓰지 않는다.
+                } else if (editing == null || editing.ruleId.isEmpty()) {
                     Row(
                         Modifier.fillMaxWidth().clickable { monthly = !monthly },
                         verticalAlignment = Alignment.CenterVertically,
@@ -152,7 +193,10 @@ fun AddEntryDialog(
             }
         },
         confirmButton = {
-            TextButton(enabled = value > 0, onClick = { onSave(income, value, category, memo.trim(), method, monthly) }) {
+            TextButton(
+                enabled = value > 0 && (!installment || monthCount in 2..60),
+                onClick = { onSave(income, value, category, memo.trim(), method, monthly, if (installment && !income) monthCount else 0) },
+            ) {
                 Text("저장")
             }
         },
@@ -235,4 +279,10 @@ fun ShareDialog(vm: LedgerViewModel, onDismiss: () -> Unit) {
             TextButton(onClick = { vm.changeName(name); onDismiss() }) { Text("닫기") }
         },
     )
+}
+
+/** 할부금 나누기. 원 단위 나머지는 첫 달에 더한다(카드사와 같은 방식). */
+fun installmentPlan(principal: Long, months: Int): List<Long> {
+    val each = principal / months
+    return List(months) { if (it == 0) each + principal % months else each }
 }

@@ -176,8 +176,9 @@ fun LedgerScreen(vm: LedgerViewModel) {
         AddEntryDialog(
             date = vm.selected,
             onDismiss = { adding = false },
-            onSave = { inc, amount, cat, memo, method, monthly ->
-                vm.add(inc, amount, cat, memo, method, monthly)
+            onSave = { inc, amount, cat, memo, method, monthly, installMonths ->
+                if (installMonths > 0) vm.addInstallment(amount, installMonths, cat, memo, method)
+                else vm.add(inc, amount, cat, memo, method, monthly)
                 adding = false
             },
         )
@@ -187,7 +188,7 @@ fun LedgerScreen(vm: LedgerViewModel) {
             date = LocalDate.parse(e.date),
             editing = e,
             onDismiss = { editing = null },
-            onSave = { inc, amount, cat, memo, method, monthly ->
+            onSave = { inc, amount, cat, memo, method, monthly, _ ->
                 if (monthly) vm.makeMonthly(e, inc, amount, cat, memo, method)
                 else vm.update(e, inc, amount, cat, memo, method)
                 editing = null
