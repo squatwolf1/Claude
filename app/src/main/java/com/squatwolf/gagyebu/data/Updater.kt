@@ -18,7 +18,7 @@ import org.json.JSONArray
  * 저장소가 공개여야 로그인 없이 확인·다운로드된다.
  */
 object Updater {
-    private const val RELEASES = "https://api.github.com/repos/squatwolf1/Claude/releases?per_page=10"
+    private const val RELEASES = "https://api.github.com/repos/gihoobkim/kkoppang/releases?per_page=10"
     private const val ASSET = "gagyebu.apk"
 
     data class Release(val build: Int, val url: String)
