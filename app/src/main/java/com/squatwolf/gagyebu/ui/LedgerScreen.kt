@@ -53,6 +53,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.squatwolf.gagyebu.LedgerViewModel
 import com.squatwolf.gagyebu.data.Assets
 import com.squatwolf.gagyebu.data.Entry
+import com.squatwolf.gagyebu.data.SAVING_CATEGORIES
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -63,6 +64,7 @@ val Blue = Color(0xFF5B8DEF)
 val Red = Color(0xFFE5655B)
 val Fixed = Color(0xFFF08C84) // 고정비: 연한 빨강
 val FixedIn = Color(0xFF8DB4F2) // 고정 수입: 연한 파랑
+val Saving = Color(0xFF3FA66B) // 적금: 초록
 private val Selected = Color(0xFFE4E4E4)
 
 fun won(v: Long) = "%,d".format(v)
@@ -80,7 +82,9 @@ fun LedgerScreen(vm: LedgerViewModel) {
 
     val byDate = remember(entries) { entries.groupBy { it.date } }
     val income = entries.filter { it.income }.sumOf { it.amount }
-    val expense = entries.filter { !it.income }.sumOf { it.amount }
+    // 저금 분류는 지출과 따로 '적금'으로 센다.
+    val saving = entries.filter { !it.income && it.category in SAVING_CATEGORIES }.sumOf { it.amount }
+    val expense = entries.filter { !it.income }.sumOf { it.amount } - saving
     val dayEntries = byDate[vm.selected.toString()].orEmpty()
 
     // 첫 화면에서 뒤로 가기 → 종료 확인
@@ -154,7 +158,7 @@ fun LedgerScreen(vm: LedgerViewModel) {
                 }
                 Spacer(Modifier.height(8.dp))
             } }
-            item { Summary(income, expense) }
+            item { Summary(income, expense, saving) }
             item { Column { Calendar(vm.month, vm.selected, byDate) { vm.selected = it } } }
             if (dayEntries.isEmpty()) {
                 item {
@@ -256,15 +260,17 @@ private fun monthTitle(m: YearMonth) =
     if (m.year == YearMonth.now().year) "${m.monthValue}월" else "${m.year}년 ${m.monthValue}월"
 
 @Composable
-private fun Summary(income: Long, expense: Long) {
-    val total = income - expense
-    // 달력 위에 수입 · 지출 · 합계를 각각 색 테두리 칸으로 나눠 보여 준다.
+private fun Summary(income: Long, expense: Long, saving: Long) {
+    // 합계 = 수입 - 지출 - 적금 (이번 달 쓰고 모으고 남은 돈)
+    val total = income - expense - saving
+    // 달력 위에 수입 · 지출 · 적금 · 합계를 각각 색 테두리 칸으로 나눠 보여 준다.
     Row(
         Modifier.fillMaxWidth().padding(bottom = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         SummaryCell("수입", "+${won(income)}원", Blue, Modifier.weight(1f))
         SummaryCell("지출", "-${won(expense)}원", Red, Modifier.weight(1f))
+        SummaryCell("적금", "${won(saving)}원", Saving, Modifier.weight(1f))
         SummaryCell(
             "합계",
             (if (total >= 0) "+" else "-") + won(kotlin.math.abs(total)) + "원",
@@ -281,19 +287,13 @@ private fun SummaryCell(label: String, amount: String, color: Color, modifier: M
             .clip(RoundedCornerShape(14.dp))
             .background(Color.White)
             .border(1.5.dp, color, RoundedCornerShape(14.dp))
-            .padding(horizontal = 10.dp, vertical = 12.dp),
+            .padding(horizontal = 6.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(label, color = Muted, fontSize = 13.sp)
         Spacer(Modifier.height(4.dp))
-        Text(
-            amount,
-            color = color,
-            fontSize = if (amount.length > 11) 13.sp else 15.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            softWrap = false,
-        )
+        // 칸이 네 개라 좁다. 금액이 길면 글자를 줄여 잘리지 않게 한다.
+        FitText(amount, color, 15f)
     }
 }
 
