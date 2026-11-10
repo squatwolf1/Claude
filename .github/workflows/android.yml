@@ -14,6 +14,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 잠시 다른 곳에서 build-103 까지 배포했다. 이미 깔린 앱이 업데이트로 받을 수 있게 실행 번호에 100 을 더한다.
+      - name: 빌드 번호
+        run: echo "BUILD=$((GITHUB_RUN_NUMBER + 100))" >> "$GITHUB_ENV"
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -23,7 +27,7 @@ jobs:
 
       - name: APK 빌드
         env:
-          BUILD_NUMBER: ${{ github.run_number }}
+          BUILD_NUMBER: ${{ env.BUILD }}
         run: |
           if [[ -f app/google-services.json ]]; then
             echo "::notice::google-services.json 있음 → 공유 모드로 빌드"
@@ -45,7 +49,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.run_number }}
-          name: 빌드 ${{ github.run_number }}
+          tag_name: build-${{ env.BUILD }}
+          name: 빌드 ${{ env.BUILD }}
           make_latest: true
           files: gagyebu.apk
