@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 예전 저장소(squatwolf1/Claude)가 build-78 까지 썼다. 이미 깔린 앱이 업데이트로 받을 수 있게 100 을 더해 이어 간다.
+      # 잠시 다른 곳에서 build-103 까지 배포했다. 이미 깔린 앱이 업데이트로 받을 수 있게 실행 번호에 100 을 더한다.
       - name: 빌드 번호
         run: echo "BUILD=$((GITHUB_RUN_NUMBER + 100))" >> "$GITHUB_ENV"
 
