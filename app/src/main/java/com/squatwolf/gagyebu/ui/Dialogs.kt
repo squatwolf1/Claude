@@ -40,11 +40,16 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.squatwolf.gagyebu.LedgerViewModel
 import com.squatwolf.gagyebu.data.Entry
+import com.squatwolf.gagyebu.data.FIXED_SAVING
+import com.squatwolf.gagyebu.data.LIQUID_SAVING
+import com.squatwolf.gagyebu.data.SAVING_CATEGORIES
 import java.time.LocalDate
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
-private val expenseCategories = listOf("식비", "교통", "쇼핑", "생활", "공과금", "대출", "보험", "유류", "병원", "저금(사용불가)", "저금(사용가능)", "기타")
+private val expenseCategories = listOf("식비", "교통", "쇼핑", "생활", "공과금", "대출", "보험", "유류", "병원", "기타")
+// 저금은 지출·수입과 나란히 세 번째 큰 분류. 저장은 지출(income=false)에 저금 분류로 한다.
+private val savingCategories = listOf(FIXED_SAVING, LIQUID_SAVING)
 private val incomeCategories = listOf("월급", "용돈", "부수입", "기타")
 private val methods = listOf("현금", "카드", "계좌이체")
 
@@ -83,6 +88,7 @@ fun AddEntryDialog(
     var income by remember { mutableStateOf(editing?.income ?: false) }
     var amount by remember { mutableStateOf(editing?.amount?.toString() ?: "") }
     var category by remember { mutableStateOf(editing?.category ?: expenseCategories[0]) }
+    var saving by remember { mutableStateOf(editing != null && !editing.income && editing.category in SAVING_CATEGORIES) }
     var memo by remember { mutableStateOf(editing?.memo ?: "") }
     var method by remember { mutableStateOf(editing?.method?.ifEmpty { null } ?: methods[0]) }
     var monthly by remember { mutableStateOf(false) }
@@ -97,12 +103,15 @@ fun AddEntryDialog(
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = !income, onClick = {
-                        income = false; category = expenseCategories[0]
+                    FilterChip(selected = !income && !saving, onClick = {
+                        income = false; saving = false; category = expenseCategories[0]
                     }, label = { Text("지출") })
                     FilterChip(selected = income, onClick = {
-                        income = true; category = incomeCategories[0]
+                        income = true; saving = false; category = incomeCategories[0]
                     }, label = { Text("수입") })
+                    FilterChip(selected = saving, onClick = {
+                        income = false; saving = true; installment = false; category = savingCategories[0]
+                    }, label = { Text("저금") })
                 }
                 OutlinedTextField(
                     value = amount,
@@ -115,8 +124,14 @@ fun AddEntryDialog(
                 )
                 Text("분류", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    (if (income) incomeCategories else expenseCategories).forEach {
-                        FilterChip(selected = category == it, onClick = { category = it }, label = { Text("${emojiOf(it)} $it") })
+                    when {
+                        income -> incomeCategories
+                        saving -> savingCategories
+                        else -> expenseCategories
+                    }.forEach {
+                        // 저금 칸에서는 '저금(…)' 을 떼고 사용불가·사용가능만 크게 보여 준다.
+                        val label = if (saving) it.removePrefix("저금(").removeSuffix(")") else it
+                        FilterChip(selected = category == it, onClick = { category = it }, label = { Text("${emojiOf(it)} $label") })
                     }
                 }
                 OutlinedTextField(
@@ -133,7 +148,7 @@ fun AddEntryDialog(
                     }
                 }
                 // 새 지출은 할부로 나눠 넣을 수 있다. 원금을 개월 수로 나눠 다음 달부터 같은 날에 들어간다.
-                if (editing == null && !income) {
+                if (editing == null && !income && !saving) {
                     Row(
                         Modifier.fillMaxWidth().clickable { installment = !installment; if (installment) monthly = false },
                         verticalAlignment = Alignment.CenterVertically,

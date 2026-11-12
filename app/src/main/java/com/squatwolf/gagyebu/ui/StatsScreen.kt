@@ -51,6 +51,10 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.window.Dialog
 import com.squatwolf.gagyebu.data.Assets
 import com.squatwolf.gagyebu.data.Entry
 import com.squatwolf.gagyebu.data.SAVING_CATEGORIES
@@ -95,6 +99,11 @@ fun StatsScreen(
     }
 
     var picking by remember { mutableStateOf(false) }
+    // 분류를 누르면 그달 그 분류 내역을 영수증처럼 보여 준다.
+    var receipt by remember { mutableStateOf<Slice?>(null) }
+    receipt?.let { s ->
+        ReceiptDialog(month, s, expenses.filter { it.category == s.category }) { receipt = null }
+    }
     if (picking) {
         MonthPickerDialog(month, onPick = { onPick(it); picking = false }, onDismiss = { picking = false })
     }
@@ -130,7 +139,7 @@ fun StatsScreen(
             } else {
                 item { Header(month, expenses, total) }
                 item { Donut(slices, total) }
-                items(slices, key = { it.category }) { s -> SliceRow(s, total) }
+                items(slices, key = { it.category }) { s -> SliceRow(s, total) { receipt = s } }
                 item {
                     Card {
                         Text("📅 날짜별 지출", fontSize = 17.sp, fontWeight = FontWeight.Bold)
@@ -302,9 +311,12 @@ private fun DailyBars(month: YearMonth, daily: List<Long>) {
 
 /** 비율 · 아이콘 · 분류 · 막대 · 금액 한 줄. */
 @Composable
-private fun SliceRow(s: Slice, total: Long) {
+private fun SliceRow(s: Slice, total: Long, onClick: () -> Unit) {
     val ratio = s.amount.toFloat() / total
-    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(
             "${percent(s.amount, total)}%",
             color = s.color,
@@ -326,5 +338,67 @@ private fun SliceRow(s: Slice, total: Long) {
             Box(Modifier.fillMaxWidth(ratio).height(12.dp).clip(CircleShape).background(s.color))
         }
         Text("${won(s.amount)}원", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+/** 그달 한 분류의 내역을 날짜순으로, 종이 영수증처럼 보여 준다. */
+@Composable
+private fun ReceiptDialog(month: YearMonth, s: Slice, entries: List<Entry>, onDismiss: () -> Unit) {
+    val list = entries.sortedWith(compareBy({ it.date }, { it.memo }))
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color.White)
+                .clickable(onClick = onDismiss)
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("${emojiOf(s.category)}", fontSize = 28.sp)
+            Text("${s.category} 영수증", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Ink)
+            Text("${month.year}년 ${month.monthValue}월", fontSize = 13.sp, color = Muted)
+            Spacer(Modifier.height(12.dp))
+            DashedLine()
+            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 380.dp)) {
+                items(list, key = { it.id }) { e ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            e.date.substring(5).replace('-', '/'),
+                            fontSize = 13.sp,
+                            color = Muted,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.width(48.dp),
+                        )
+                        Column(Modifier.weight(1f)) {
+                            Text(e.memo.ifEmpty { s.category }, fontSize = 15.sp, maxLines = 1, color = Ink)
+                            val sub = listOf(e.method, e.author).filter { it.isNotEmpty() }.joinToString(" · ")
+                            if (sub.isNotEmpty()) Text(sub, fontSize = 11.sp, color = Muted)
+                        }
+                        Text("${won(e.amount)}원", fontSize = 15.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = Ink)
+                    }
+                }
+            }
+            DashedLine()
+            Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("합계 ${list.size}건", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Ink, modifier = Modifier.weight(1f))
+                Text("${won(s.amount)}원", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = s.color, fontFamily = FontFamily.Monospace)
+            }
+            Spacer(Modifier.height(14.dp))
+            Text("- 눌러서 닫기 -", fontSize = 11.sp, color = Muted)
+        }
+    }
+}
+
+@Composable
+private fun DashedLine() {
+    Canvas(Modifier.fillMaxWidth().height(2.dp)) {
+        drawLine(
+            Muted,
+            Offset(0f, size.height / 2),
+            Offset(size.width, size.height / 2),
+            strokeWidth = 1.5f,
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f)),
+        )
     }
 }
